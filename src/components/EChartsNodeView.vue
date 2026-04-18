@@ -18,17 +18,37 @@ const props = defineProps(nodeViewProps)
 const chartRef = ref(null)
 let chartInstance = null
 let resizeObserver = null
+let resizeTimer = null
 
 onMounted(() => {
-  chartInstance = echarts.init(chartRef.value)
-  updateChart()
-  resizeObserver = new ResizeObserver(() => chartInstance?.resize())
+  // Suppress ECharts resize warning - it's harmless and resize still works
+  const originalWarn = console.warn
+  const originalError = console.error
+  const suppressed = (msg) => typeof msg === 'string' && msg.includes('resize') && msg.includes('main process')
+  const safeResize = () => {
+    console.warn = (...args) => { if (!suppressed(args.join(' '))) originalWarn(...args) }
+    console.error = (...args) => { if (!suppressed(args.join(' '))) originalError(...args) }
+    try { chartInstance?.resize() } finally {
+      console.warn = originalWarn
+      console.error = originalError
+    }
+  }
+
+  requestAnimationFrame(() => {
+    chartInstance = echarts.init(chartRef.value)
+    updateChart()
+  })
+  resizeObserver = new ResizeObserver(() => {
+    clearTimeout(resizeTimer)
+    resizeTimer = setTimeout(safeResize, 250)
+  })
   resizeObserver.observe(chartRef.value)
 })
 
 onBeforeUnmount(() => {
   chartInstance?.dispose()
   resizeObserver?.disconnect()
+  clearTimeout(resizeTimer)
 })
 
 watch(() => props.node.attrs.chartData, () => {

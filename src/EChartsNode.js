@@ -38,9 +38,10 @@ export const EChartsNode = Node.create({
   addCommands() {
     return {
       setEChartsChart: (options) => ({ commands }) => {
+        const data = typeof options === 'string' ? options : JSON.stringify(options, null, 2)
         return commands.insertContent({
           type: this.name,
-          attrs: { chartData: JSON.stringify(options, null, 2) }
+          attrs: { chartData: data }
         })
       }
     }

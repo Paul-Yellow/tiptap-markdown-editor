@@ -1,22 +1,36 @@
 <template>
   <div class="markdown-editor" v-if="editor">
-    <!-- Toolbar -->
-    <div class="editor-toolbar" v-if="!previewOnly">
-      <button
-        v-for="btn in toolbarButtons"
-        :key="btn.action"
-        :class="{ 'is-active': btn.isActive?.() }"
-        @click="btn.action"
-        :title="btn.title"
-      >
-        {{ btn.label }}
-      </button>
-      <div class="toolbar-divider"></div>
-      <button @click="insertECharts" title="插入图表">图表</button>
+    <!-- Editor -->
+    <div ref="editorContainerRef" class="editor-container">
+      <EditorContent :editor="editor" />
     </div>
 
-    <!-- Editor -->
-    <EditorContent :editor="editor" />
+    <!-- Slash command menu (triggered by "/") -->
+    <div
+      v-if="slashMenuVisible"
+      ref="slashMenuRef"
+      class="slash-menu-popup"
+      :style="slashMenuStyle"
+      @mousedown.prevent
+    >
+      <SlashMenu
+        ref="slashMenuComponentRef"
+        :editor="editor"
+        :items="menuItems"
+        :query="slashMenuQuery"
+        @select="onSlashMenuSelect"
+      />
+    </div>
+
+    <!-- Block "+" button overlay menu -->
+    <BlockMenuOverlay
+      ref="blockMenuOverlayRef"
+      :editor="editor"
+      :items="plusMenuItems"
+    />
+
+    <!-- Format toolbar (selection-based) -->
+    <FormatToolbar :editor="editor" />
 
     <!-- Chart edit dialog -->
     <ChartEditDialog ref="chartDialog" @save="handleChartSave" />
@@ -24,12 +38,23 @@
 </template>
 
 <script setup>
-import { ref, onBeforeUnmount, watch, onMounted } from 'vue'
+import { ref, onBeforeUnmount, watch, onMounted, computed } from 'vue'
 import { useEditor, EditorContent } from '@tiptap/vue-3'
 import StarterKit from '@tiptap/starter-kit'
 import { Markdown } from '@tiptap/markdown'
+import Link from '@tiptap/extension-link'
+import Underline from '@tiptap/extension-underline'
+import Placeholder from '@tiptap/extension-placeholder'
 import { EChartsNode } from '../../EChartsNode'
 import ChartEditDialog from '../ChartEditDialog.vue'
+import SlashMenu from '../SlashMenu/SlashMenu.vue'
+import BlockMenuOverlay from '../BlockMenuOverlay.vue'
+import FormatToolbar from '../FormatToolbar.vue'
+import { menuItems } from '../SlashMenu/menuItems.js'
+import { SlashMenuExtension } from '../../extensions/SlashMenuExtension'
+import { BlockButtonsExtension, initBlockButtons, updateBlockButtons } from '../../extensions/BlockButtonsExtension'
+import { CodeBlockWithCharts } from '../../extensions/CodeBlockWithCharts'
+import { MarkdownInputRules } from '../../extensions/MarkdownInputRules'
 
 const props = defineProps({
   modelValue: { type: String, default: '' },
@@ -45,6 +70,28 @@ let editingNodePos = null
 let isMounted = false
 let lastEmittedValue = ''
 
+const editorContainerRef = ref(null)
+const slashMenuRef = ref(null)
+const slashMenuComponentRef = ref(null)
+const blockMenuOverlayRef = ref(null)
+
+const slashMenuVisible = ref(false)
+const slashMenuQuery = ref('')
+const slashMenuStyle = ref({})
+
+// Wrapped menu items for "+" button: insert NEW block AFTER current block
+const plusMenuItems = computed(() =>
+  menuItems.map(item => ({
+    ...item,
+    // Use plusCommand for "+" button (inserts new block)
+    command: item.plusCommand || item.command
+  }))
+)
+
+function onSlashMenuSelect() {
+  slashMenuVisible.value = false
+}
+
 function handleChartEdit(chartData, nodePos) {
   editingNodePos = nodePos
   chartDialog.value?.open(chartData)
@@ -55,15 +102,32 @@ const editor = useEditor({
   content: props.modelValue,
   extensions: [
     StarterKit.configure({
-      heading: { levels: [1, 2, 3, 4, 5, 6] }
+      heading: { levels: [1, 2, 3, 4, 5, 6] },
+      codeBlock: false,
+      link: false,
+      underline: false
     }),
+    Link.configure({
+      openOnClick: false,
+      HTMLAttributes: { target: '_blank' }
+    }),
+    Underline,
+    Placeholder.configure({
+      placeholder: '输入文字或按 "/" 使用命令...',
+      showOnlyCurrent: true,
+      showOnlyWhenEditable: true
+    }),
+    CodeBlockWithCharts,
     Markdown,
-    EChartsNode.configure({ onEdit: handleChartEdit })
+    MarkdownInputRules,
+    EChartsNode.configure({ onEdit: handleChartEdit }),
+    SlashMenuExtension,
+    BlockButtonsExtension
   ],
   editorProps: {
     attributes: {
       class: 'tiptap-editor-content',
-      style: `min-height: ${props.height}; padding: 16px; outline: none;`
+      style: `min-height: ${props.height}; padding: 16px 16px 16px 48px; outline: none;`
     }
   },
   onUpdate: ({ editor }) => {
@@ -71,13 +135,40 @@ const editor = useEditor({
     lastEmittedValue = md
     emit('update:modelValue', md)
     emit('change', md)
+  },
+  onCreate: ({ editor }) => {
+    const tryInit = (retry = 0) => {
+      if (retry > 20) return
+      if (!editor.view?.dom) {
+        setTimeout(() => tryInit(retry + 1), 50)
+        return
+      }
+      let container = editor.view.dom.closest('.markdown-editor')
+      if (!container) {
+        setTimeout(() => tryInit(retry + 1), 50)
+        return
+      }
+      try {
+        initBlockButtons(editor)
+      } catch {
+        setTimeout(() => tryInit(retry + 1), 50)
+        return
+      }
+      const bbStorage = editor.extensionStorage?.blockButtons
+      if (bbStorage) {
+        bbStorage.onPlusClick = (btnEl) => {
+          const rect = btnEl.getBoundingClientRect()
+          blockMenuOverlayRef.value?.open(rect.right + 8, rect.top)
+        }
+      }
+    }
+    setTimeout(() => tryInit(), 50)
   }
 })
 
 watch(
   () => props.modelValue,
   (val) => {
-    // Skip if this update came from our own editor
     if (val === lastEmittedValue) return
     if (!isMounted) return
     if (editor.value) {
@@ -88,89 +179,56 @@ watch(
 
 onMounted(() => {
   isMounted = true
+
+  // Update button positions and slash menu state on content changes
+  editor.value?.on('transaction', () => {
+    requestAnimationFrame(() => updateBlockButtons(editor.value))
+
+    // Update slash menu state from extension storage
+    const smStorage = editor.value?.extensionStorage?.slashMenu
+    if (smStorage) {
+      slashMenuVisible.value = smStorage.visible
+      slashMenuQuery.value = smStorage.query || ''
+
+      if (smStorage.visible && editor.value) {
+        const { view, state } = editor.value
+        const { $from } = state.selection
+        const coords = view.coordsAtPos($from.pos)
+        const containerRect = editorContainerRef.value?.getBoundingClientRect()
+        if (containerRect) {
+          slashMenuStyle.value = {
+            position: 'absolute',
+            top: (coords.top - containerRect.top + coords.height + 4) + 'px',
+            left: Math.max(0, coords.left - containerRect.left) + 'px',
+            zIndex: 100
+          }
+        }
+      }
+    }
+  })
+
+  // Connect slash menu keyboard callbacks
+  const smStorage = editor.value?.extensionStorage?.slashMenu
+  if (smStorage) {
+    smStorage._moveUp = () => slashMenuComponentRef.value?.moveUp()
+    smStorage._moveDown = () => slashMenuComponentRef.value?.moveDown()
+    smStorage._selectCurrent = () => slashMenuComponentRef.value?.selectCurrent()
+  }
 })
 
 onBeforeUnmount(() => {
   editor.value?.destroy()
 })
 
-const toolbarButtons = [
-  {
-    label: 'B',
-    title: '加粗',
-    action: () => editor.value.chain().focus().toggleBold().run(),
-    isActive: () => editor.value.isActive('bold')
-  },
-  {
-    label: 'I',
-    title: '斜体',
-    action: () => editor.value.chain().focus().toggleItalic().run(),
-    isActive: () => editor.value.isActive('italic')
-  },
-  {
-    label: 'S',
-    title: '删除线',
-    action: () => editor.value.chain().focus().toggleStrike().run(),
-    isActive: () => editor.value.isActive('strike')
-  },
-  {
-    label: 'H1',
-    title: '标题1',
-    action: () => editor.value.chain().focus().toggleHeading({ level: 1 }).run(),
-    isActive: () => editor.value.isActive('heading', { level: 1 })
-  },
-  {
-    label: 'H2',
-    title: '标题2',
-    action: () => editor.value.chain().focus().toggleHeading({ level: 2 }).run(),
-    isActive: () => editor.value.isActive('heading', { level: 2 })
-  },
-  {
-    label: 'H3',
-    title: '标题3',
-    action: () => editor.value.chain().focus().toggleHeading({ level: 3 }).run(),
-    isActive: () => editor.value.isActive('heading', { level: 3 })
-  },
-  {
-    label: '• List',
-    title: '无序列表',
-    action: () => editor.value.chain().focus().toggleBulletList().run(),
-    isActive: () => editor.value.isActive('bulletList')
-  },
-  {
-    label: '1. List',
-    title: '有序列表',
-    action: () => editor.value.chain().focus().toggleOrderedList().run(),
-    isActive: () => editor.value.isActive('orderedList')
-  },
-  {
-    label: '> Quote',
-    title: '引用',
-    action: () => editor.value.chain().focus().toggleBlockquote().run(),
-    isActive: () => editor.value.isActive('blockquote')
-  },
-  {
-    label: '</>',
-    title: '代码块',
-    action: () => editor.value.chain().focus().toggleCodeBlock().run(),
-    isActive: () => editor.value.isActive('codeBlock')
-  },
-  {
-    label: '---',
-    title: '分隔线',
-    action: () => editor.value.chain().focus().setHorizontalRule().run()
+// When a chart node is selected, store its position for editing
+watch(
+  () => editor.value?.state.selection,
+  (selection) => {
+    if (selection?.node && selection.node.type.name === 'echartsChart') {
+      editingNodePos = selection.from
+    }
   }
-]
-
-function insertECharts() {
-  const defaultOption = {
-    title: { text: '示例图表' },
-    xAxis: { type: 'category', data: ['A', 'B', 'C'] },
-    yAxis: {},
-    series: [{ type: 'bar', data: [10, 20, 30] }]
-  }
-  editor.value.chain().focus().setEChartsChart(defaultOption).run()
-}
+)
 
 function handleChartSave(newJson) {
   if (editingNodePos !== null && editor.value) {
@@ -183,17 +241,6 @@ function handleChartSave(newJson) {
   }
 }
 
-// When a chart node is selected, store its position for editing
-watch(
-  () => editor.value?.state.selection,
-  (selection) => {
-    if (selection?.node && selection.node.type.name === 'echartsChart') {
-      editingNodePos = selection.from
-    }
-  }
-)
-
-// Expose methods
 defineExpose({
   getMarkdown: () => editor.value?.storage.markdown?.getMarkdown?.() || '',
   getHtml: () => editor.value?.getHTML() || '',
@@ -203,44 +250,20 @@ defineExpose({
 
 <style scoped>
 .markdown-editor {
+  position: relative;
   border: 1px solid #ddd;
   border-radius: 8px;
   overflow: hidden;
   background: #fff;
 }
 
-.editor-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-  padding: 8px;
-  border-bottom: 1px solid #ddd;
-  background: #f8f9fa;
+.editor-container {
+  position: relative;
 }
 
-.editor-toolbar button {
-  padding: 6px 10px;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  background: transparent;
-  cursor: pointer;
-  font-size: 13px;
-  color: #333;
-}
-
-.editor-toolbar button:hover {
-  background: #e9ecef;
-}
-
-.editor-toolbar button.is-active {
-  background: #3b82f6;
-  color: #fff;
-}
-
-.toolbar-divider {
-  width: 1px;
-  background: #ddd;
-  margin: 4px 6px;
+.slash-menu-popup {
+  position: absolute;
+  z-index: 100;
 }
 
 :deep(.tiptap-editor-content) {
@@ -295,4 +318,19 @@ defineExpose({
 :deep(.tiptap-editor-content:focus) {
   outline: none;
 }
+
+/* Placeholder 样式 */
+:deep(.tiptap-editor-content p.is-empty::before) {
+  content: attr(data-placeholder);
+  float: left;
+  color: #adb5bd;
+  pointer-events: none;
+  height: 0;
+  font-size: 14px;
+}
+
+:deep(.tiptap-editor-content p.is-empty) {
+  min-height: 1.5em;
+}
+
 </style>

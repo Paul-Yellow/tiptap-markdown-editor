@@ -13,10 +13,20 @@ export function catchErrors() {
                     req.on('end', () => {
                         try {
                             const logPath = path.resolve(process.cwd(), 'web-errors.log')
-                            const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19)
-                            const entry = `[${timestamp}]\n${body}\n\n`
+                            const data = JSON.parse(body)
+                            const timestamp = data.t || new Date().toLocaleString()
+                            const message = data.m || body
+                            const entry = `[${timestamp}]\n${message}\n\n`
                             fs.appendFileSync(logPath, entry, 'utf8')
-                        } catch (e) { }
+                        } catch (e) {
+                            // Fallback for non-JSON body
+                            try {
+                                const logPath = path.resolve(process.cwd(), 'web-errors.log')
+                                const timestamp = new Date().toLocaleString()
+                                const entry = `[${timestamp}]\n${body}\n\n`
+                                fs.appendFileSync(logPath, entry, 'utf8')
+                            } catch { }
+                        }
                         res.end('ok')
                     })
                 }
@@ -33,7 +43,10 @@ if (import.meta.env.DEV) {
   window.addEventListener('error', (e) => {
     fetch('/__catch_error', {
       method: 'POST',
-      body: e.error?.stack || e.message || 'Unknown error'
+      body: JSON.stringify({
+        t: new Date().toLocaleString(),
+        m: e.error?.stack || e.message || 'Unknown error'
+      })
     }).catch(()=>{})
   })
 
@@ -41,7 +54,10 @@ if (import.meta.env.DEV) {
   window.addEventListener('unhandledrejection', (e) => {
     fetch('/__catch_error', {
       method: 'POST',
-      body: e.reason?.stack || String(e.reason)
+      body: JSON.stringify({
+        t: new Date().toLocaleString(),
+        m: e.reason?.stack || String(e.reason)
+      })
     }).catch(()=>{})
   })
 
@@ -51,13 +67,27 @@ if (import.meta.env.DEV) {
     _originalConsoleError(...args)
     fetch('/__catch_error', {
       method: 'POST',
-      body: args.map(a => {
-        try {
-          return typeof a === 'object' ? JSON.stringify(a) : String(a)
-        } catch {
-          return String(a)
-        }
-      }).join(' ')
+      body: JSON.stringify({
+        t: new Date().toLocaleString(),
+        m: args.map(a => {
+          try { return typeof a === 'object' ? JSON.stringify(a) : String(a) } catch { return String(a) }
+        }).join(' ')
+      })
+    }).catch(()=>{})
+  }
+
+  // 重写 console.warn
+  const _originalConsoleWarn = console.warn
+  console.warn = (...args) => {
+    _originalConsoleWarn(...args)
+    fetch('/__catch_error', {
+      method: 'POST',
+      body: JSON.stringify({
+        t: new Date().toLocaleString(),
+        m: '[WARN] ' + args.map(a => {
+          try { return typeof a === 'object' ? JSON.stringify(a) : String(a) } catch { return String(a) }
+        }).join(' ')
+      })
     }).catch(()=>{})
   }
 }

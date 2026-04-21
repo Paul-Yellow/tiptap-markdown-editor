@@ -2,7 +2,10 @@
   <div style="max-width:1200px;margin:24px auto;padding:0 16px;">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
       <h2 style="margin:0;">Markdown Editor + ECharts</h2>
-      <ExportPdfBtn :editor="editorRef?.editor?.()" />
+      <div>
+        <ExportPdfBtn :editor="editorRef?.editor?.()" />
+        <ExportDocxBtn :editor="editorRef?.editor?.()" />
+      </div>
     </div>
     <MarkdownEditor ref="editorRef" v-model="md" height="600px" />
   </div>
@@ -12,6 +15,7 @@
 import { ref } from 'vue'
 import MarkdownEditor from './components/MarkdownEditor/index.vue'
 import ExportPdfBtn from './components/ExportPdfBtn.vue'
+import ExportDocxBtn from './components/ExportDocxBtn.vue'
 
 const editorRef = ref(null)
 

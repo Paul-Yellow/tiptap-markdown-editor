@@ -48,6 +48,15 @@ function convertBlock(editor, type, attrs) {
     // Replace with ECharts node
     const chartNode = state.schema.nodes.echartsChart.create({ chartData: attrs })
     tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, chartNode)
+  } else if (targetTypeName === 'bulletList' || targetTypeName === 'orderedList') {
+    // For lists, we need to wrap content in listItem nodes
+    const listItemNodeType = state.schema.nodes.listItem
+
+    // Get text content from current node
+    const textContent = node.textContent
+    const listItemNode = listItemNodeType.create(null, textContent ? state.schema.text(textContent) : null)
+    const listNode = targetNodeType.create(null, listItemNode)
+    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, listNode)
   } else {
     // Create new node with same content
     const newNode = targetNodeType.create(attrs, node.content)
@@ -91,90 +100,90 @@ function plusAction(editor, type, attrs) {
 
 export const menuItems = [
   {
-    label: 'Text',
-    desc: 'Plain text block',
+    label: '正文',
+    desc: '普通文本段落',
     icon: 'text',
-    keywords: 'text paragraph normal',
+    keywords: '文本 段落 正文',
     command: (editor) => slashAction(editor, 'setParagraph'),
     plusCommand: (editor) => plusAction(editor, 'setParagraph')
   },
   {
-    label: 'Heading 1',
-    desc: 'Large section heading',
+    label: '标题 1',
+    desc: '大章节标题',
     icon: 'h1',
-    keywords: 'heading title h1',
+    keywords: '标题  headings h1',
     command: (editor) => slashAction(editor, 'setHeading', { level: 1 }),
     plusCommand: (editor) => plusAction(editor, 'setHeading', { level: 1 })
   },
   {
-    label: 'Heading 2',
-    desc: 'Medium section heading',
+    label: '标题 2',
+    desc: '中等章节标题',
     icon: 'h2',
-    keywords: 'heading title h2',
+    keywords: '标题 headings h2',
     command: (editor) => slashAction(editor, 'setHeading', { level: 2 }),
     plusCommand: (editor) => plusAction(editor, 'setHeading', { level: 2 })
   },
   {
-    label: 'Heading 3',
-    desc: 'Small section heading',
+    label: '标题 3',
+    desc: '小章节标题',
     icon: 'h3',
-    keywords: 'heading title h3',
+    keywords: '标题 headings h3',
     command: (editor) => slashAction(editor, 'setHeading', { level: 3 }),
     plusCommand: (editor) => plusAction(editor, 'setHeading', { level: 3 })
   },
   {
-    label: 'Quote',
-    desc: 'Capture a quote',
+    label: '引用',
+    desc: '引用文本块',
     icon: 'quote',
-    keywords: 'blockquote quote cite',
+    keywords: '引用 引语 blockquote',
     command: (editor) => slashAction(editor, 'toggleBlockquote'),
     plusCommand: (editor) => plusAction(editor, 'toggleBlockquote')
   },
   {
-    label: 'Bullet List',
-    desc: 'Simple unordered list',
+    label: '无序列表',
+    desc: '简单无序列表',
     icon: 'bullet',
-    keywords: 'bullet unordered list ul',
+    keywords: '列表 无序 圆点',
     command: (editor) => slashAction(editor, 'toggleBulletList'),
     plusCommand: (editor) => plusAction(editor, 'toggleBulletList')
   },
   {
-    label: 'Numbered List',
-    desc: 'List with ordering',
+    label: '有序列表',
+    desc: '带序号的列表',
     icon: 'numbered',
-    keywords: 'numbered ordered list ol',
+    keywords: '列表 有序 序号',
     command: (editor) => slashAction(editor, 'toggleOrderedList'),
     plusCommand: (editor) => plusAction(editor, 'toggleOrderedList')
   },
   {
-    label: 'Code Block',
-    desc: 'Code snippet',
+    label: '代码块',
+    desc: '代码片段',
     icon: 'code',
-    keywords: 'code snippet pre',
+    keywords: '代码 代码块',
     command: (editor) => slashAction(editor, 'toggleCodeBlock'),
     plusCommand: (editor) => plusAction(editor, 'setCodeBlock')
   },
   {
-    label: 'Divider',
-    desc: 'Visual separator',
+    label: '分割线',
+    desc: '视觉分隔线',
     icon: 'divider',
-    keywords: 'divider hr horizontal rule separator',
+    keywords: '分割线 横线 分隔符',
     command: (editor) => slashAction(editor, 'setHorizontalRule'),
     plusCommand: (editor) => plusAction(editor, 'setHorizontalRule')
   },
   {
     label: 'ECharts 代码块',
-    desc: 'Code block rendered as chart',
+    desc: '渲染为图表的代码块',
     icon: 'chart',
-    keywords: 'echarts chart code json',
+    keywords: '图表 echarts 代码 json',
     command: (editor) => slashAction(editor, 'setCodeBlock', { language: 'echarts' }),
     plusCommand: (editor) => plusAction(editor, 'setCodeBlock', { language: 'echarts' })
   },
   {
-    label: 'ECharts',
-    desc: 'Interactive chart',
+    label: 'ECharts 图表',
+    desc: '交互式图表',
     icon: 'chart',
-    keywords: 'chart graph echarts visualization',
+    keywords: '图表 echarts 可视化',
     command: (editor) => slashAction(editor, 'setEChartsChart', defaultChart),
     plusCommand: (editor) => plusAction(editor, 'setEChartsChart', defaultChart)
   }

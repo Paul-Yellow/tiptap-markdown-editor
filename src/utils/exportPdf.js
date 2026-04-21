@@ -12,6 +12,16 @@ export async function exportToPdf(element, filename = 'document.pdf') {
     return
   }
 
+  // 导出前清除所有选择，避免 PDF 中出现蓝色选中框
+  const savedSelection = window.getSelection()
+  if (savedSelection.rangeCount > 0) {
+    savedSelection.removeAllRanges()
+  }
+  // 同时清除 editor 内部的选中状态
+  if (element.classList.contains('ProseMirror')) {
+    element.blur()
+  }
+
   // 显示加载提示
   const loadingTip = document.createElement('div')
   loadingTip.style.cssText = `

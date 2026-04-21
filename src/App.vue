@@ -1,13 +1,19 @@
 <template>
   <div style="max-width:1200px;margin:24px auto;padding:0 16px;">
-    <h2 style="margin-bottom:16px;">Markdown Editor (Tiptap) + ECharts</h2>
-    <MarkdownEditor v-model="md" height="600px" />
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 style="margin:0;">Markdown Editor + ECharts</h2>
+      <ExportPdfBtn :editor="editorRef?.editor?.()" />
+    </div>
+    <MarkdownEditor ref="editorRef" v-model="md" height="600px" />
   </div>
 </template>
 
 <script setup>
 import { ref } from 'vue'
 import MarkdownEditor from './components/MarkdownEditor/index.vue'
+import ExportPdfBtn from './components/ExportPdfBtn.vue'
+
+const editorRef = ref(null)
 
 const md = ref(`# Markdown Editor 演示
 

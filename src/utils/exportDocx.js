@@ -1,4 +1,4 @@
-import { Document, Packer, Paragraph, ImageRun, TextRun, AlignmentType } from 'docx'
+import { Document, Packer, Paragraph, ImageRun, TextRun, AlignmentType, Table, TableRow, TableCell, WidthType, BorderStyle } from 'docx'
 import html2canvas from 'html2canvas'
 
 /**
@@ -91,7 +91,8 @@ export async function exportToDocX(element, filename = 'document.docx') {
       '.block-button',
       '.slash-menu',
       '.format-toolbar',
-      '.chart-edit-overlay'
+      '.chart-edit-overlay',
+      '.table-controls'
     ]
     removeSelectors.forEach(selector => {
       clone.querySelectorAll(selector).forEach(el => el.remove())
@@ -192,40 +193,54 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
   // 设置为 4500 以确保图片不会超出 (约 8cm 宽度，留出余量)
   const maxImageWidth = 4500
 
-  // 解析表格
+  // 解析表格为真正的 docx Table
   function parseTable(tableNode) {
-    const tableChildren = []
     const rows = Array.from(tableNode.querySelectorAll('tr'))
+    if (rows.length === 0) return null
+
+    const docxRows = []
 
     rows.forEach((row, rowIndex) => {
-      const cells = []
-      const cellsData = Array.from(row.children)
-
-      cellsData.forEach(cell => {
+      const cells = Array.from(row.children)
+      const tableCells = cells.map(cell => {
         const tagName = cell.tagName?.toUpperCase()
         const isHeader = tagName === 'TH'
-        const cellContent = cell.textContent.trim()
+        const cellText = cell.textContent.trim()
 
-        cells.push({
-          text: cellContent,
-          isHeader: isHeader || rowIndex === 0
+        return new TableCell({
+          width: cells.length > 0 ? { size: Math.floor(100 / cells.length), type: WidthType.PERCENTAGE } : undefined,
+          shading: isHeader ? { fill: 'F3F4F6', type: 'clear' } : undefined,
+          borders: isHeader ? undefined : undefined,
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: cellText,
+                  bold: isHeader,
+                  size: 20 // 10pt
+                })
+              ],
+              spacing: { before: 20, after: 20 }
+            })
+          ]
         })
       })
 
-      // 将每一行转换为一个段落（简化处理）
-      tableChildren.push(new Paragraph({
-        children: cells.map((cell, idx) => [
-          new TextRun({
-            text: cell.text,
-            bold: cell.isHeader
-          }),
-          // 添加分隔符（除了最后一个单元格）
-          idx < cells.length - 1 ? new TextRun({ text: '  |  ' }) : null
-        ]).flat().filter(Boolean)
-      }))
+      docxRows.push(new TableRow({ children: tableCells }))
     })
 
-    return tableChildren
+    return new Table({
+      width: { size: 100, type: WidthType.PERCENTAGE },
+      rows: docxRows,
+      borders: {
+        top: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
+        bottom: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
+        left: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
+        right: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
+        insideHorizontal: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' },
+        insideVertical: { style: BorderStyle.SINGLE, size: 1, color: 'E5E7EB' }
+      }
+    })
   }
 
   function getEffectiveText(node) {
@@ -454,7 +469,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
           underline: {}
         })
       case 'TABLE':
-        // 处理表格 - parseTable 返回数组
+        // 处理表格为真正的 docx Table
         return parseTable(node)
       case 'TR':
       case 'TH':

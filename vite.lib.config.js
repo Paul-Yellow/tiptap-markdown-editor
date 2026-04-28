@@ -16,12 +16,14 @@ export default defineConfig({
         'vue',
         '@tiptap/core',
         '@tiptap/vue-3',
+        '@tiptap/extension-text-style',
       ],
       output: {
         globals: {
           vue: 'Vue',
           '@tiptap/core': 'tiptapCore',
           '@tiptap/vue-3': 'tiptapVue3',
+          '@tiptap/extension-text-style': 'tiptapTextStyle',
         },
       },
     },

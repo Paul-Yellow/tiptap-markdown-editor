@@ -49,6 +49,7 @@ import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Table, TableRow, TableHeader, TableCell } from '../../extensions/Table'
+import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
 import { EChartsNode } from '../../EChartsNode'
 import ChartEditDialog from '../ChartEditDialog.vue'
 import SlashMenu from '../SlashMenu/SlashMenu.vue'
@@ -131,7 +132,9 @@ const editor = useEditor({
     Table,
     TableRow,
     TableHeader,
-    TableCell
+    TableCell,
+    TextStyle,
+    FontFamily
   ],
   editorProps: {
     attributes: {

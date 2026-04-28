@@ -8,6 +8,7 @@ import { SlashMenuExtension } from './extensions/SlashMenuExtension'
 import { BlockButtonsExtension, initBlockButtons, updateBlockButtons } from './extensions/BlockButtonsExtension'
 import { Table, TableRow, TableHeader, TableCell } from './extensions/Table'
 import { menuItems } from './components/SlashMenu/menuItems.js'
+import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
 
 const install = (app) => {
   app.component('MarkdownEditor', MarkdownEditor)
@@ -30,6 +31,8 @@ export {
   TableRow,
   TableHeader,
   TableCell,
+  FontFamily,
+  TextStyle,
   menuItems,
 }
 

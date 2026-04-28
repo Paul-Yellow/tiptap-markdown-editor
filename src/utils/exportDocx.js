@@ -188,8 +188,6 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
 
   // docx 使用 half-points (1/1440 英寸) 单位
   // A4 页面可用宽度：11906 - 1440*2 = 9026 half-points
-  // 设置为 4500 以确保图片不会超出 (约 8cm 宽度，留出余量)
-  const maxImageWidth = 4500
 
   // 解析表格为真正的 docx Table
   function parseTable(tableNode) {
@@ -198,7 +196,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
 
     const docxRows = []
 
-    rows.forEach((row, rowIndex) => {
+    rows.forEach((row) => {
       const cells = Array.from(row.children)
       const tableCells = cells.map(cell => {
         const tagName = cell.tagName?.toUpperCase()
@@ -480,6 +478,9 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
               style.bold = true
             } else if (prop.trim().toLowerCase() === 'font-style' && val === 'italic') {
               style.italics = true
+            } else if (prop.trim().toLowerCase() === 'font-family') {
+              // 移除引号
+              style.font = val.replace(/['"]/g, '')
             } else if (prop.trim().toLowerCase() === 'text-decoration') {
               if (val.includes('underline')) style.underline = true
               if (val.includes('line-through')) style.strike = true

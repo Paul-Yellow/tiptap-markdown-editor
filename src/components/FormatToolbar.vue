@@ -1,5 +1,22 @@
 <template>
-  <div v-if="visible" class="format-toolbar" :style="toolbarStyle" @mousedown.prevent>
+  <div v-if="visible" class="format-toolbar" :style="toolbarStyle" @mousedown="onToolbarMouseDown">
+    <select
+      v-model="currentFont"
+      class="font-select"
+      title="字体"
+      @change="setFont"
+    >
+      <option value="">默认</option>
+      <option
+        v-for="font in fonts"
+        :key="font"
+        :value="font"
+        :style="{ fontFamily: font }"
+      >
+        {{ font }}
+      </option>
+    </select>
+    <div class="toolbar-divider"></div>
     <button
       v-for="(btn, idx) in buttons"
       :key="idx"
@@ -43,6 +60,18 @@ const toolbarStyle = ref({})
 const showLinkInput = ref(false)
 const linkUrl = ref('')
 const linkInputRef = ref(null)
+const currentFont = ref('')
+
+const fonts = [
+  '楷体_GB2312',
+  '方正公文小标宋',
+  '方正小标宋简体',
+  '黑体',
+  '仿宋',
+  '方正楷体_GBK',
+  '楷体',
+  '宋体',
+]
 
 const buttons = [
   { name: 'bold', icon: 'B', label: '粗体' },
@@ -60,6 +89,21 @@ const hasLink = computed(() => props.editor?.isActive('link') || false)
 
 function toggleFormat(format) {
   props.editor?.chain().focus().toggleMark(format).run()
+}
+
+function setFont() {
+  if (!props.editor) return
+  if (currentFont.value) {
+    props.editor.chain().focus().setFontFamily(currentFont.value).run()
+  } else {
+    props.editor.chain().focus().unsetFontFamily().run()
+  }
+}
+
+function onToolbarMouseDown(event) {
+  // 下拉框不需要阻止默认行为
+  if (event.target.tagName === 'SELECT') return
+  event.preventDefault()
 }
 
 function toggleLinkInput() {
@@ -104,6 +148,10 @@ function updatePosition() {
     return
   }
 
+  // 更新当前字体选中状态
+  const attrs = props.editor.getAttributes('fontFamily')
+  currentFont.value = attrs.fontFamily || ''
+
   visible.value = true
 
   const { view } = props.editor
@@ -111,7 +159,7 @@ function updatePosition() {
   const end = view.coordsAtPos(to)
 
   // 计算工具栏位置（选区上方居中）
-  const toolbarWidth = 200
+  const toolbarWidth = 350
   let left = (start.left + end.left) / 2 - toolbarWidth / 2
   let top = start.top - 45
 
@@ -160,6 +208,24 @@ watch(() => props.editor, (newEditor, oldEditor) => {
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   padding: 4px 8px;
+}
+
+.font-select {
+  width: 140px;
+  height: 28px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 13px;
+  color: #333;
+  background: #fff;
+  cursor: pointer;
+  outline: none;
+  flex-shrink: 0;
+}
+
+.font-select:focus {
+  border-color: #3b82f6;
 }
 
 .toolbar-btn {

@@ -87,8 +87,6 @@ export async function exportToDocX(element, filename = 'document.docx') {
 
     // 移除按钮、工具栏等不需要导出的元素
     const removeSelectors = [
-      '.plus-button',
-      '.block-button',
       '.slash-menu',
       '.format-toolbar',
       '.chart-edit-overlay',
@@ -205,24 +203,21 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       const tableCells = cells.map(cell => {
         const tagName = cell.tagName?.toUpperCase()
         const isHeader = tagName === 'TH'
-        const cellText = cell.textContent.trim()
+        const cellBlocks = processChildren(cell, { bold: isHeader, size: 20 })
+
+        // 展平 Paragraph 嵌套：TableCell 接受 Paragraph 作为 children，
+        // 所以直接把 processChildren 返回的 Paragraph 对象作为 TableCell children
+        const tableCellChildren = cellBlocks.length > 0 ? cellBlocks : [
+          new Paragraph({
+            children: [new TextRun({ text: '', size: 20 })],
+            spacing: { before: 20, after: 20 }
+          })
+        ]
 
         return new TableCell({
           width: cells.length > 0 ? { size: Math.floor(100 / cells.length), type: WidthType.PERCENTAGE } : undefined,
           shading: isHeader ? { fill: 'F3F4F6', type: 'clear' } : undefined,
-          borders: isHeader ? undefined : undefined,
-          children: [
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: cellText,
-                  bold: isHeader,
-                  size: 20 // 10pt
-                })
-              ],
-              spacing: { before: 20, after: 20 }
-            })
-          ]
+          children: tableCellChildren
         })
       })
 
@@ -243,29 +238,34 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
     })
   }
 
-  function getEffectiveText(node) {
-    // 获取节点的纯文本，跳过子元素
-    let text = ''
-    for (const child of node.childNodes) {
-      if (child.nodeType === Node.TEXT_NODE) {
-        text += child.textContent
-      }
-    }
-    return text
-  }
-
   function processNode(node, parentStyle = {}) {
     if (node.nodeType === Node.TEXT_NODE) {
-      const text = node.textContent.trim()
-      if (text) {
-        return new TextRun({
+      const text = node.textContent
+      if (text.length > 0) {
+        const runProps = {
           text,
-          bold: parentStyle.bold,
-          italics: parentStyle.italics,
-          color: parentStyle.color,
-          size: parentStyle.size,
-          font: parentStyle.font
-        })
+          bold: parentStyle.bold || undefined,
+          italics: parentStyle.italics || undefined,
+        }
+        if (parentStyle.underline) {
+          runProps.underline = {}
+        }
+        if (parentStyle.strike) {
+          runProps.strikeThrough = true
+        }
+        if (parentStyle.color) {
+          runProps.color = parentStyle.color
+        }
+        if (parentStyle.size) {
+          runProps.size = parentStyle.size
+        }
+        if (parentStyle.font) {
+          runProps.font = parentStyle.font
+        }
+        if (parentStyle.link) {
+          runProps.link = parentStyle.link
+        }
+        return new TextRun(runProps)
       }
       return null
     }
@@ -359,6 +359,10 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
           spacing: { after: 60, before: 60 }
         })
       case 'P':
+        if (parentStyle._noBlock) {
+          // 在列表/表格内，<p> 不创建新 Paragraph，直接返回子 TextRuns
+          return processChildren(node, parentStyle)
+        }
         const pChildren = processChildren(node)
         if (pChildren.length > 0) {
           return new Paragraph({ children: pChildren })
@@ -368,35 +372,24 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
         if (innerText) {
           return new Paragraph({ children: [new TextRun({ text: innerText })] })
         }
+        // 空白段落保留但不设置多余内容
+        const innerWhitespace = node.textContent
+        if (innerWhitespace.length > 0) {
+          return new Paragraph({ children: [new TextRun({ text: innerWhitespace })] })
+        }
         return null
       case 'STRONG':
       case 'B':
-        return new TextRun({
-          text: node.textContent.trim() || getEffectiveText(node),
-          bold: true,
-          color: parentStyle.color,
-          size: parentStyle.size,
-          font: parentStyle.font
-        })
+        return processChildren(node, { ...parentStyle, bold: true })
       case 'EM':
       case 'I':
-        return new TextRun({
-          text: node.textContent.trim() || getEffectiveText(node),
-          italics: true,
-          bold: parentStyle.bold,
-          color: parentStyle.color,
-          size: parentStyle.size,
-          font: parentStyle.font
-        })
+        return processChildren(node, { ...parentStyle, italics: true })
       case 'U':
-        return new TextRun({
-          text: node.textContent.trim() || getEffectiveText(node),
-          underline: {},
-          bold: parentStyle.bold,
-          color: parentStyle.color,
-          size: parentStyle.size,
-          font: parentStyle.font
-        })
+        return processChildren(node, { ...parentStyle, underline: true })
+      case 'S':
+      case 'STRIKE':
+      case 'DEL':
+        return processChildren(node, { ...parentStyle, strike: true })
       case 'CODE':
         if (node.parentElement?.tagName?.toUpperCase() === 'PRE') {
           return null
@@ -429,8 +422,9 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       case 'UL':
         const ulItems = []
         Array.from(node.children).filter(el => el.tagName?.toUpperCase() === 'LI').forEach(li => {
+          // _noBlock: true 让 li 内的 <p> 不创建新 Paragraph，直接返回 TextRuns
           ulItems.push(new Paragraph({
-            children: [new TextRun({ text: li.textContent.trim() })],
+            children: processChildren(li, { ...parentStyle, _noBlock: true }).filter(Boolean),
             bullet: { level: 0 }
           }))
         })
@@ -439,17 +433,14 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
         const olItems = []
         Array.from(node.children).filter(el => el.tagName?.toUpperCase() === 'LI').forEach((li) => {
           olItems.push(new Paragraph({
-            children: [new TextRun({ text: li.textContent.trim() })],
+            children: processChildren(li, { ...parentStyle, _noBlock: true }).filter(Boolean),
             numbering: { reference: 'default-numbering', level: 0 }
           }))
         })
         return olItems
       case 'BLOCKQUOTE':
         return new Paragraph({
-          children: [new TextRun({
-            text: node.textContent.trim(),
-            italics: true
-          })],
+          children: processChildren(node, { italics: true }),
           spacing: { left: 400 },
           border: {
             left: { color: 'CCCCCC', space: 1, value: 'single', size: 3 }
@@ -462,12 +453,8 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
           }
         })
       case 'A':
-        return new TextRun({
-          text: node.textContent,
-          link: node.getAttribute('href'),
-          color: '0066CC',
-          underline: {}
-        })
+        // 处理链接内的子节点，每个TextRun都带上link和underline
+        return processChildren(node, { ...parentStyle, link: node.getAttribute('href'), underline: true, color: '0066CC' })
       case 'TABLE':
         // 处理表格为真正的 docx Table
         return parseTable(node)
@@ -481,8 +468,25 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
         return null
       case 'DIV':
       case 'SPAN':
-        // 通用容器，递归处理，传递父级样式
-        return processChildren(node, parentStyle)
+        // 提取内联样式并传递给子节点
+        const style = { ...parentStyle }
+        const inlineStyle = node.getAttribute('style')
+        if (inlineStyle) {
+          const declarations = inlineStyle.split(';')
+          declarations.forEach(d => {
+            const [prop, ...valParts] = d.split(':')
+            const val = valParts.join(':').trim().toLowerCase()
+            if (prop.trim().toLowerCase() === 'font-weight' && (val === 'bold' || parseInt(val) >= 700)) {
+              style.bold = true
+            } else if (prop.trim().toLowerCase() === 'font-style' && val === 'italic') {
+              style.italics = true
+            } else if (prop.trim().toLowerCase() === 'text-decoration') {
+              if (val.includes('underline')) style.underline = true
+              if (val.includes('line-through')) style.strike = true
+            }
+          })
+        }
+        return processChildren(node, style)
       default:
         // 其他节点类型，递归处理子节点
         const results = []

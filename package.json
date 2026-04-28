@@ -1,27 +1,48 @@
 {
-  "name": "markdown-editor",
-  "private": true,
+  "name": "tiptap-markdown-editor",
   "version": "1.0.0",
+  "description": "A Markdown editor built with Vue 3 and TipTap, supporting ECharts, tables, slash menus and more",
   "type": "module",
+  "private": false,
+  "main": "./dist/tiptap-markdown-editor.umd.cjs",
+  "module": "./dist/tiptap-markdown-editor.js",
+  "exports": {
+    ".": {
+      "import": "./dist/tiptap-markdown-editor.js",
+      "require": "./dist/tiptap-markdown-editor.umd.cjs"
+    },
+    "./style.css": "./dist/tiptap-markdown-editor.css"
+  },
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "dev": "vite --host --port 5176",
+    "build:lib": "vite build --config vite.lib.config.js",
     "build": "vite build",
     "preview": "vite preview"
   },
-  "dependencies": {
+  "peerDependencies": {
+    "vue": "^3.5.0",
     "@tiptap/core": "^3.22.4",
+    "@tiptap/vue-3": "^3.22.3"
+  },
+  "dependencies": {
     "@tiptap/extension-link": "^3.22.3",
     "@tiptap/extension-placeholder": "^3.22.3",
+    "@tiptap/extension-table": "^3.22.4",
+    "@tiptap/extension-table-cell": "^3.22.4",
+    "@tiptap/extension-table-header": "^3.22.4",
+    "@tiptap/extension-table-row": "^3.22.4",
     "@tiptap/extension-underline": "^3.22.3",
     "@tiptap/markdown": "^3.22.3",
     "@tiptap/pm": "^3.22.3",
     "@tiptap/starter-kit": "^3.22.3",
-    "@tiptap/vue-3": "^3.22.3",
     "docx": "^9.6.1",
     "echarts": "^5.5.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
-    "vue": "^3.5.0"
+    "lowlight": "^3.3.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.2.0",

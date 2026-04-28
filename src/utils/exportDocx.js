@@ -192,6 +192,42 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
   // 设置为 4500 以确保图片不会超出 (约 8cm 宽度，留出余量)
   const maxImageWidth = 4500
 
+  // 解析表格
+  function parseTable(tableNode) {
+    const tableChildren = []
+    const rows = Array.from(tableNode.querySelectorAll('tr'))
+
+    rows.forEach((row, rowIndex) => {
+      const cells = []
+      const cellsData = Array.from(row.children)
+
+      cellsData.forEach(cell => {
+        const tagName = cell.tagName?.toUpperCase()
+        const isHeader = tagName === 'TH'
+        const cellContent = cell.textContent.trim()
+
+        cells.push({
+          text: cellContent,
+          isHeader: isHeader || rowIndex === 0
+        })
+      })
+
+      // 将每一行转换为一个段落（简化处理）
+      tableChildren.push(new Paragraph({
+        children: cells.map((cell, idx) => [
+          new TextRun({
+            text: cell.text,
+            bold: cell.isHeader
+          }),
+          // 添加分隔符（除了最后一个单元格）
+          idx < cells.length - 1 ? new TextRun({ text: '  |  ' }) : null
+        ]).flat().filter(Boolean)
+      }))
+    })
+
+    return tableChildren
+  }
+
   function getEffectiveText(node) {
     // 获取节点的纯文本，跳过子元素
     let text = ''
@@ -358,16 +394,20 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       case 'PRE':
         const codeEl = node.querySelector('code')
         const codeText = codeEl?.textContent || node.textContent
+        // 将代码按换行符分割成多行
+        const lines = codeText.split('\n')
         return new Paragraph({
-          children: [new TextRun({
-            text: codeText,
-            font: 'Consolas',
-            size: 20,
-            break: 1
-          })],
+          children: lines.map((line, index) => [
+            new TextRun({
+              text: line + (index < lines.length - 1 ? '\n' : ''),
+              font: 'Consolas',
+              size: 20,
+              color: 'D4D4D4'
+            })
+          ]).flat(),
           shading: {
-            fill: 'F6F8FA',
-            color: '000000'
+            fill: '1E1E1E',
+            color: 'D4D4D4'
           },
           spacing: { after: 100, before: 100 }
         })
@@ -413,6 +453,14 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
           color: '0066CC',
           underline: {}
         })
+      case 'TABLE':
+        // 处理表格 - parseTable 返回数组
+        return parseTable(node)
+      case 'TR':
+      case 'TH':
+      case 'TD':
+        // 表格行和单元格由 parseTable 统一处理，这里跳过
+        return null
       case 'LI':
         // 列表项由其父级 UL/OL 处理，这里跳过
         return null

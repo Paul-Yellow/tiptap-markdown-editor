@@ -32,6 +32,9 @@
     <!-- Format toolbar (selection-based) -->
     <FormatToolbar :editor="editor" />
 
+    <!-- Table toolbar (when table is selected) -->
+    <TableToolbar :editor="editor" />
+
     <!-- Chart edit dialog -->
     <ChartEditDialog ref="chartDialog" @save="handleChartSave" />
   </div>
@@ -45,11 +48,13 @@ import { Markdown } from '@tiptap/markdown'
 import Link from '@tiptap/extension-link'
 import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
+import { Table, TableRow, TableHeader, TableCell } from '../../extensions/Table'
 import { EChartsNode } from '../../EChartsNode'
 import ChartEditDialog from '../ChartEditDialog.vue'
 import SlashMenu from '../SlashMenu/SlashMenu.vue'
 import BlockMenuOverlay from '../BlockMenuOverlay.vue'
 import FormatToolbar from '../FormatToolbar.vue'
+import TableToolbar from '../TableToolbar.vue'
 import { menuItems } from '../SlashMenu/menuItems.js'
 import { SlashMenuExtension } from '../../extensions/SlashMenuExtension'
 import { BlockButtonsExtension, initBlockButtons, updateBlockButtons } from '../../extensions/BlockButtonsExtension'
@@ -122,7 +127,11 @@ const editor = useEditor({
     MarkdownInputRules,
     EChartsNode.configure({ onEdit: handleChartEdit }),
     SlashMenuExtension,
-    BlockButtonsExtension
+    BlockButtonsExtension,
+    Table,
+    TableRow,
+    TableHeader,
+    TableCell
   ],
   editorProps: {
     attributes: {
@@ -290,10 +299,21 @@ defineExpose({
 }
 
 :deep(.tiptap-editor-content pre) {
-  background: #f6f8fa;
-  border-radius: 6px;
-  padding: 12px;
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
   overflow-x: auto;
+  color: #d4d4d4;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+:deep(.tiptap-editor-content pre code) {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
 }
 
 :deep(.tiptap-editor-content code) {
@@ -331,6 +351,46 @@ defineExpose({
 
 :deep(.tiptap-editor-content p.is-empty) {
   min-height: 1.5em;
+}
+
+/* 表格样式 */
+:deep(.tiptap-editor-content table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+:deep(.tiptap-editor-content table th),
+:deep(.tiptap-editor-content table td) {
+  border: 1px solid #e5e7eb;
+  padding: 10px 14px;
+  min-width: 80px;
+}
+
+:deep(.tiptap-editor-content table th) {
+  background: #f9fafb;
+  font-weight: 600;
+  text-align: left;
+}
+
+:deep(.tiptap-editor-content table tr:hover) {
+  background: #f9fafb;
+}
+
+:deep(.tiptap-editor-content table .selectedCell) {
+  background: #dbeafe;
+  border-color: #3b82f6;
+}
+
+/* 表格选中时的样式 */
+:deep(.tiptap-editor-content .table-node-wrapper) {
+  position: relative;
+}
+
+:deep(.tiptap-editor-content .table-node-wrapper.selected) {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 </style>

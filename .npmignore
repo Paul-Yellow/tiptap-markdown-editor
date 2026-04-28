@@ -1,0 +1,9 @@
+src/
+public/
+vite-plugins/
+vite.config.js
+vite.lib.config.js
+index.html
+node_modules/
+*.md
+.env*

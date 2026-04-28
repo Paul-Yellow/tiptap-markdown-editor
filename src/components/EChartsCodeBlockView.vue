@@ -5,6 +5,7 @@
     @mouseenter="hovered = true"
     @mouseleave="hovered = false"
   >
+    <!-- ECharts 代码块 -->
     <div v-if="isECharts" class="echarts-code-block">
       <div class="echarts-code-block-toolbar" v-if="selected || hovered">
         <button @click.stop="editChart" class="echarts-code-edit-btn">编辑</button>
@@ -36,7 +37,11 @@
         </div>
       </Teleport>
     </div>
-    <NodeViewContent v-else class="code-block-content" />
+
+    <!-- 普通代码块 -->
+    <div v-else class="normal-code-block">
+      <pre><code :class="languageClass"><NodeViewContent /></code></pre>
+    </div>
   </NodeViewWrapper>
 </template>
 
@@ -59,6 +64,11 @@ const editorRef = ref(null)
 
 const isECharts = computed(() => {
   return props.node?.attrs?.language === 'echarts'
+})
+
+const languageClass = computed(() => {
+  const lang = props.node?.attrs?.language
+  return lang ? `language-${lang}` : ''
 })
 
 const nodeContent = computed(() => {
@@ -167,8 +177,55 @@ onBeforeUnmount(() => {
 <style scoped>
 .code-block-wrapper {
   position: relative;
+  margin: 16px 0;
 }
 
+/* 普通代码块样式 */
+.normal-code-block {
+  margin: 0;
+}
+
+.normal-code-block pre {
+  background: #1e1e1e;
+  border-radius: 8px;
+  padding: 16px;
+  overflow-x: auto;
+  color: #d4d4d4;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.normal-code-block code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  font-size: inherit;
+  font-family: inherit;
+  outline: none;
+  border: none;
+  display: block;
+  min-height: 100%;
+}
+
+.normal-code-block code:focus {
+  outline: none;
+  border: none;
+}
+
+/* 语法高亮颜色 */
+.normal-code-block .hljs-string { color: #ce9178; }
+.normal-code-block .hljs-number { color: #b5cea8; }
+.normal-code-block .hljs-keyword { color: #569cd6; }
+.normal-code-block .hljs-function { color: #dcdcaa; }
+.normal-code-block .hljs-comment { color: #6a9955; }
+.normal-code-block .hljs-variable { color: #9cdcfe; }
+.normal-code-block .hljs-object { color: #4ec9b0; }
+
+/* ECharts 代码块样式 */
 .echarts-code-block {
   position: relative;
   border: 1px solid #e0e0e0;

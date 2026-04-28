@@ -172,6 +172,18 @@ export const menuItems = [
     plusCommand: (editor) => plusAction(editor, 'setHorizontalRule')
   },
   {
+    label: '表格',
+    desc: '插入 3x3 表格',
+    icon: 'table',
+    keywords: '表格 table 网格',
+    command: (editor) => {
+      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+    },
+    plusCommand: (editor) => {
+      editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+    }
+  },
+  {
     label: 'ECharts 代码块',
     desc: '渲染为图表的代码块',
     icon: 'chart',

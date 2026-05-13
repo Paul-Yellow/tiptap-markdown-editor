@@ -1,10 +1,11 @@
 <template>
-  <div v-if="visible" class="format-toolbar" :style="toolbarStyle" @mousedown="onToolbarMouseDown">
+  <div v-if="visible" class="format-toolbar" :style="toolbarStyle">
     <select
       v-model="currentFont"
       class="font-select"
       title="字体"
       @change="setFont"
+      @mousedown.stop
     >
       <option value="">默认</option>
       <option
@@ -21,7 +22,8 @@
       <button
         class="toolbar-btn color-btn"
         title="字体颜色"
-        @click="toggleColorPicker"
+        @click.stop="toggleColorPicker"
+        @mousedown.stop
       >
         <span class="toolbar-icon" :style="{ color: currentColor || '#000' }">A</span>
       </button>
@@ -44,6 +46,7 @@
       :key="idx"
       :class="['toolbar-btn', { active: isActive(btn.name) }]"
       :title="btn.label"
+      @mousedown.stop
       @click="toggleFormat(btn.name)"
     >
       <span class="toolbar-icon">{{ btn.icon }}</span>
@@ -55,6 +58,7 @@
         :key="align.name"
         :class="['toolbar-btn', { active: isActive(align.name) }]"
         :title="align.label"
+        @mousedown.stop
         @click="setTextAlign(align.name)"
       >
         <span class="toolbar-icon">{{ align.icon }}</span>
@@ -75,6 +79,7 @@
       class="toolbar-btn"
       :class="{ active: hasLink }"
       title="链接"
+      @mousedown.stop
       @click="toggleLinkInput"
     >
       <span class="toolbar-icon">🔗</span>
@@ -184,12 +189,6 @@ function closeColorPicker() {
   showColorPicker.value = false
 }
 
-function onToolbarMouseDown(event) {
-  // 下拉框不需要阻止默认行为
-  if (event.target.tagName === 'SELECT') return
-  event.preventDefault()
-}
-
 function toggleLinkInput() {
   if (hasLink.value) {
     // 移除链接
@@ -232,7 +231,7 @@ function updatePosition() {
     return
   }
 
-  // 更新当前字体选中状态 - 直接遍历选区中的文本节点查找 textStyle mark
+  // 更新当前字体选中状态 - 先检查 textStyle mark，如果没有则从 DOM 获取实际渲染的字体
   let fontFamily = ''
   props.editor.state.doc.nodesBetween(from, to, (node) => {
     if (node.isText && node.marks.length > 0) {
@@ -245,6 +244,22 @@ function updatePosition() {
     }
     return !fontFamily // 如果已找到则停止
   })
+
+  // 如果 mark 中没有字体信息，从 DOM 获取实际渲染的字体
+  if (!fontFamily) {
+    const { view } = props.editor
+    const domAtPos = view.domAtPos(from)
+    if (domAtPos && domAtPos.node) {
+      const container = domAtPos.node.nodeType === Node.ELEMENT_NODE
+        ? domAtPos.node
+        : domAtPos.node.parentElement
+      if (container) {
+        const computedStyle = window.getComputedStyle(container)
+        fontFamily = computedStyle.fontFamily
+      }
+    }
+  }
+
   // 每次都将下拉框设置为当前选区的实际字体，没找到则恢复为默认
   currentFont.value = fontFamily
     ? fontFamily.replace(/['"]/g, '').trim().split(',')[0].trim()
@@ -343,6 +358,8 @@ watch(() => props.editor, (newEditor, oldEditor) => {
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
   padding: 4px 8px;
+  user-select: none;
+  pointer-events: auto;
 }
 
 .font-select {

@@ -6,21 +6,23 @@
     </div>
 
     <!-- Slash command menu (triggered by "/") -->
-    <div
-      v-if="slashMenuVisible"
-      ref="slashMenuRef"
-      class="slash-menu-popup"
-      :style="slashMenuStyle"
-      @mousedown.prevent
-    >
-      <SlashMenu
-        ref="slashMenuComponentRef"
-        :editor="editor"
-        :items="menuItems"
-        :query="slashMenuQuery"
-        @select="onSlashMenuSelect"
-      />
-    </div>
+    <Teleport to="body">
+      <div
+        v-if="slashMenuVisible"
+        ref="slashMenuRef"
+        class="slash-menu-popup"
+        :style="slashMenuStyle"
+        @mousedown.prevent
+      >
+        <SlashMenu
+          ref="slashMenuComponentRef"
+          :editor="editor"
+          :items="menuItems"
+          :query="slashMenuQuery"
+          @select="onSlashMenuSelect"
+        />
+      </div>
+    </Teleport>
 
     <!-- Block "+" button overlay menu -->
     <BlockMenuOverlay
@@ -52,6 +54,7 @@ import { Table, TableRow, TableHeader, TableCell } from '../../extensions/Table'
 import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-text-style/color'
 import TextAlign from '@tiptap/extension-text-align'
+import { BulletList, OrderedList, ListItem } from '@tiptap/extension-list'
 import { EChartsNode } from '../../EChartsNode'
 import ChartEditDialog from '../ChartEditDialog.vue'
 import SlashMenu from '../SlashMenu/SlashMenu.vue'
@@ -108,12 +111,16 @@ function handleChartEdit(chartData, nodePos) {
 const editor = useEditor({
   contentType: 'markdown',
   content: props.modelValue,
+  editable: true,
   extensions: [
     StarterKit.configure({
       heading: { levels: [1, 2, 3, 4, 5, 6] },
       codeBlock: false,
       link: false,
-      underline: false
+      underline: false,
+      bulletList: false,
+      orderedList: false,
+      listItem: false
     }),
     Link.configure({
       openOnClick: false,
@@ -141,13 +148,17 @@ const editor = useEditor({
     TextAlign.configure({
       types: ['heading', 'paragraph'],
       alignments: ['left', 'center', 'right', 'justify']
-    })
+    }),
+    BulletList,
+    OrderedList,
+    ListItem
   ],
   editorProps: {
     attributes: {
       class: 'tiptap-editor-content',
       style: `min-height: ${props.height}; padding: 16px 16px 16px 48px; outline: none;`
-    }
+    },
+    editable: () => true
   },
   onUpdate: ({ editor }) => {
     const md = editor.storage.markdown?.getMarkdown?.() || ''
@@ -213,14 +224,34 @@ onMounted(() => {
         const { view, state } = editor.value
         const { $from } = state.selection
         const coords = view.coordsAtPos($from.pos)
-        const containerRect = editorContainerRef.value?.getBoundingClientRect()
-        if (containerRect) {
-          slashMenuStyle.value = {
-            position: 'absolute',
-            top: (coords.top - containerRect.top + coords.height + 4) + 'px',
-            left: Math.max(0, coords.left - containerRect.left) + 'px',
-            zIndex: 100
-          }
+        const menuHeight = 374
+        const menuWidth = 260
+        const viewportHeight = window.innerHeight
+        const viewportWidth = window.innerWidth
+
+        let left = coords.left
+        let top = coords.top + coords.height + 4
+
+        // If menu would overflow viewport bottom, position above cursor
+        if (top + menuHeight > viewportHeight - 10) {
+          top = coords.top - menuHeight - 4
+        }
+
+        // Ensure left doesn't overflow viewport right
+        if (left + menuWidth > viewportWidth - 10) {
+          left = Math.max(10, viewportWidth - menuWidth - 10)
+        }
+
+        // Ensure top doesn't go above viewport
+        if (top < 10) {
+          top = 10
+        }
+
+        slashMenuStyle.value = {
+          position: 'fixed',
+          top: top + 'px',
+          left: left + 'px',
+          zIndex: 100
         }
       }
     }
@@ -281,12 +312,12 @@ defineExpose({
 }
 
 .slash-menu-popup {
-  position: absolute;
+  position: fixed;
   z-index: 100;
 }
 
 :deep(.tiptap-editor-content) {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: '仿宋', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.6;
 }
 
@@ -294,7 +325,12 @@ defineExpose({
   margin: 0.5em 0;
 }
 
-:deep(.tiptap-editor-content h1),
+:deep(.tiptap-editor-content h1) {
+  font-family: '黑体', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  margin: 1em 0 0.5em;
+  line-height: 1.3;
+}
+
 :deep(.tiptap-editor-content h2),
 :deep(.tiptap-editor-content h3) {
   margin: 1em 0 0.5em;

@@ -53,7 +53,7 @@ function getOrCreateHandle() {
         top: -8px;
         bottom: -8px;
         z-index: -1;
-        pointer-events: auto;
+        pointer-events: none;
       }
     `
     document.head.appendChild(style)
@@ -127,7 +127,12 @@ export function initBlockButtons(editor) {
 }
 
 function updateHandlePosition(editor) {
-  if (!editor || !editor.view || !editor.isFocused) {
+  if (!editor || !editor.view) {
+    hideHandle()
+    return
+  }
+
+  if (!editor.isFocused) {
     // 编辑器未聚焦时，只在鼠标悬停时显示
     return
   }
@@ -136,7 +141,14 @@ function updateHandlePosition(editor) {
   const { $from } = state.selection
 
   // 找到当前光标所在的块元素
-  const pos = $from.before($from.depth)
+  let pos
+  try {
+    pos = $from.before($from.depth)
+  } catch {
+    // atom 节点等特殊情况，无法获取 block 前位置
+    hideHandle()
+    return
+  }
   const node = view.nodeDOM(pos)
 
   if (node) {
@@ -153,6 +165,9 @@ function updateHandlePosition(editor) {
       if (blockEl === view.dom) break
     }
   }
+
+  // 未找到合适的块元素时隐藏按钮
+  hideHandle()
 }
 
 function setupBlockListeners(editor, storage) {
@@ -202,11 +217,15 @@ function setupBlockListeners(editor, storage) {
     const hideFn = () => {
       // 如果编辑器聚焦且光标在此块内，不隐藏
       if (editor.isFocused) {
-        const { $from } = editor.state.selection
-        const pos = $from.before($from.depth)
-        const node = editor.view.nodeDOM(pos)
-        if (node && blockEl.contains(node)) {
-          return
+        try {
+          const { $from } = editor.state.selection
+          const pos = $from.before($from.depth)
+          const node = editor.view.nodeDOM(pos)
+          if (node && blockEl.contains(node)) {
+            return
+          }
+        } catch {
+          // atom 节点等特殊情况，直接隐藏
         }
       }
 

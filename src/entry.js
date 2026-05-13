@@ -11,6 +11,7 @@ import { menuItems } from './components/SlashMenu/menuItems.js'
 import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-text-style/color'
 import TextAlign from '@tiptap/extension-text-align'
+import { BulletList, OrderedList, ListItem } from '@tiptap/extension-list'
 
 const install = (app) => {
   app.component('MarkdownEditor', MarkdownEditor)
@@ -37,6 +38,9 @@ export {
   TextStyle,
   Color,
   TextAlign,
+  BulletList,
+  OrderedList,
+  ListItem,
   menuItems,
 }
 

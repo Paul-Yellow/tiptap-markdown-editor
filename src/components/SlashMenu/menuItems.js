@@ -196,7 +196,26 @@ export const menuItems = [
     desc: '交互式图表',
     icon: 'chart',
     keywords: '图表 echarts 可视化',
-    command: (editor) => slashAction(editor, 'setEChartsChart', defaultChart),
-    plusCommand: (editor) => plusAction(editor, 'setEChartsChart', defaultChart)
+    command: (editor) => {
+      // Delete slash text first
+      const { state } = editor
+      const { $from } = state.selection
+      const text = $from.parent.textBetween(0, $from.parentOffset)
+      const match = text.match(/\/([^\s]*)$/)
+      if (match) {
+        const slashStart = $from.pos - match[0].length
+        editor.chain().focus().deleteRange({ from: slashStart, to: $from.pos }).run()
+      }
+      editor.chain().insertContent({
+        type: 'echartsChart',
+        attrs: { chartData: defaultChart }
+      }).run()
+    },
+    plusCommand: (editor) => {
+      editor.chain().focus().insertContent({
+        type: 'echartsChart',
+        attrs: { chartData: defaultChart }
+      }).run()
+    }
   }
 ]

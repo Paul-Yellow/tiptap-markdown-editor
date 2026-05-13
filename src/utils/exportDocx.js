@@ -136,6 +136,20 @@ export async function exportToDocX(element, filename = 'document.docx') {
       clone.querySelectorAll(selector).forEach(el => el.remove())
     })
 
+    // 移除 table-node-wrapper 包装，保留内部的 table
+    const wrappers = Array.from(clone.querySelectorAll('.table-node-wrapper'))
+    wrappers.forEach(wrapper => {
+      const table = wrapper.querySelector('table')
+      if (table && wrapper.parentNode) {
+        // 将 wrapper 内的所有内容（包括 table）替换到 wrapper 的位置
+        const fragment = document.createDocumentFragment()
+        Array.from(wrapper.childNodes).forEach(node => {
+          fragment.appendChild(node.cloneNode(true))
+        })
+        wrapper.parentNode.replaceChild(fragment, wrapper)
+      }
+    })
+
     // 步骤 3: 解析 HTML 并转换为 docx 元素（同时处理图表占位符）
     const children = parseHtmlToDocxElements(clone, chartImages, chartDimensions)
 
@@ -284,6 +298,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
           text,
           bold: parentStyle.bold || undefined,
           italics: parentStyle.italics || undefined,
+          font: parentStyle.font || '仿宋' // 默认字体设置为仿宋
         }
         if (parentStyle.underline) {
           runProps.underline = {}
@@ -296,9 +311,6 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
         }
         if (parentStyle.size) {
           runProps.size = parentStyle.size
-        }
-        if (parentStyle.font) {
-          runProps.font = parentStyle.font
         }
         if (parentStyle.link) {
           runProps.link = parentStyle.link
@@ -382,7 +394,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
     switch (tagName) {
       case 'H1': {
         const paragraphProps = {
-          children: processChildren(node, { bold: true, size: 48, font: 'Calibri', color: '000000' }),
+          children: processChildren(node, { bold: true, size: 48, font: '黑体', color: '000000' }),
           spacing: { after: 200, before: 200 }
         }
         if (currentStyle.textAlign) {
@@ -392,7 +404,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       }
       case 'H2': {
         const paragraphProps = {
-          children: processChildren(node, { bold: true, size: 36, font: 'Calibri', color: '000000' }),
+          children: processChildren(node, { bold: true, size: 36, color: '000000' }),
           spacing: { after: 160, before: 160 }
         }
         if (currentStyle.textAlign) {
@@ -402,7 +414,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       }
       case 'H3': {
         const paragraphProps = {
-          children: processChildren(node, { bold: true, size: 28, font: 'Calibri', color: '000000' }),
+          children: processChildren(node, { bold: true, size: 28, color: '000000' }),
           spacing: { after: 120, before: 120 }
         }
         if (currentStyle.textAlign) {
@@ -412,7 +424,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       }
       case 'H4': {
         const paragraphProps = {
-          children: processChildren(node, { bold: true, size: 24, font: 'Calibri', color: '000000' }),
+          children: processChildren(node, { bold: true, size: 24, color: '000000' }),
           spacing: { after: 100, before: 100 }
         }
         if (currentStyle.textAlign) {
@@ -422,7 +434,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       }
       case 'H5': {
         const paragraphProps = {
-          children: processChildren(node, { bold: true, size: 22, font: 'Calibri', color: '000000' }),
+          children: processChildren(node, { bold: true, size: 22, color: '000000' }),
           spacing: { after: 80, before: 80 }
         }
         if (currentStyle.textAlign) {
@@ -432,7 +444,7 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
       }
       case 'H6': {
         const paragraphProps = {
-          children: processChildren(node, { bold: true, size: 20, font: 'Calibri', color: '000000' }),
+          children: processChildren(node, { bold: true, size: 20, color: '000000' }),
           spacing: { after: 60, before: 60 }
         }
         if (currentStyle.textAlign) {
@@ -505,33 +517,142 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
           },
           spacing: { after: 100, before: 100 }
         })
-      case 'UL':
+      case 'UL': {
         const ulItems = []
         Array.from(node.children).filter(el => el.tagName?.toUpperCase() === 'LI').forEach(li => {
-          // _noBlock: true 让 li 内的 <p> 不创建新 Paragraph，直接返回 TextRuns
-          const ulParagraphProps = {
-            children: processChildren(li, { ...currentStyle, _noBlock: true }).filter(Boolean),
-            bullet: { level: 0 }
+          // 处理 LI 内的所有子节点，包括表格
+          const liChildren = processChildren(li, { ...currentStyle, _noBlock: true })
+
+          // 将连续的 TextRun 合并到一个 Paragraph 中
+          let textRuns = []
+          liChildren.forEach(child => {
+            const typeName = child?.constructor?.name
+            if (typeName === 'Table') {
+              // 先处理之前积累的 TextRun
+              if (textRuns.length > 0) {
+                const ulParagraphProps = {
+                  children: [...textRuns],
+                  bullet: { level: 0 }
+                }
+                if (currentStyle.textAlign) {
+                  ulParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+                }
+                ulItems.push(new Paragraph(ulParagraphProps))
+                textRuns = []
+              }
+              // 表格作为独立元素添加
+              ulItems.push(child)
+            } else if (typeName === 'Paragraph') {
+              // 先处理之前积累的 TextRun
+              if (textRuns.length > 0) {
+                const ulParagraphProps = {
+                  children: [...textRuns],
+                  bullet: { level: 0 }
+                }
+                if (currentStyle.textAlign) {
+                  ulParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+                }
+                ulItems.push(new Paragraph(ulParagraphProps))
+                textRuns = []
+              }
+              // 段落添加项目符号
+              const ulParagraphProps = {
+                children: child.children,
+                bullet: { level: 0 }
+              }
+              if (currentStyle.textAlign) {
+                ulParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+              }
+              ulItems.push(new Paragraph(ulParagraphProps))
+            } else if (typeName === 'TextRun') {
+              // 积累 TextRun
+              textRuns.push(child)
+            } else {
+              ulItems.push(child)
+            }
+          })
+          // 处理剩余的 TextRun
+          if (textRuns.length > 0) {
+            const ulParagraphProps = {
+              children: textRuns,
+              bullet: { level: 0 }
+            }
+            if (currentStyle.textAlign) {
+              ulParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+            }
+            ulItems.push(new Paragraph(ulParagraphProps))
           }
-          if (currentStyle.textAlign) {
-            ulParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
-          }
-          ulItems.push(new Paragraph(ulParagraphProps))
         })
         return ulItems
-      case 'OL':
+      }
+      case 'OL': {
         const olItems = []
         Array.from(node.children).filter(el => el.tagName?.toUpperCase() === 'LI').forEach((li) => {
-          const olParagraphProps = {
-            children: processChildren(li, { ...currentStyle, _noBlock: true }).filter(Boolean),
-            numbering: { reference: 'default-numbering', level: 0 }
+          // 处理 LI 内的所有子节点，包括表格
+          const liChildren = processChildren(li, { ...currentStyle, _noBlock: true })
+
+          // 将连续的 TextRun 合并到一个 Paragraph 中
+          let textRuns = []
+          liChildren.forEach(child => {
+            const typeName = child?.constructor?.name
+            if (typeName === 'Table') {
+              // 先处理之前积累的 TextRun
+              if (textRuns.length > 0) {
+                const olParagraphProps = {
+                  children: [...textRuns],
+                  numbering: { reference: 'default-numbering', level: 0 }
+                }
+                if (currentStyle.textAlign) {
+                  olParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+                }
+                olItems.push(new Paragraph(olParagraphProps))
+                textRuns = []
+              }
+              // 表格作为独立元素添加
+              olItems.push(child)
+            } else if (typeName === 'Paragraph') {
+              // 先处理之前积累的 TextRun
+              if (textRuns.length > 0) {
+                const olParagraphProps = {
+                  children: [...textRuns],
+                  numbering: { reference: 'default-numbering', level: 0 }
+                }
+                if (currentStyle.textAlign) {
+                  olParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+                }
+                olItems.push(new Paragraph(olParagraphProps))
+                textRuns = []
+              }
+              // 段落添加编号
+              const olParagraphProps = {
+                children: child.children,
+                numbering: { reference: 'default-numbering', level: 0 }
+              }
+              if (currentStyle.textAlign) {
+                olParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+              }
+              olItems.push(new Paragraph(olParagraphProps))
+            } else if (typeName === 'TextRun') {
+              // 积累 TextRun
+              textRuns.push(child)
+            } else {
+              olItems.push(child)
+            }
+          })
+          // 处理剩余的 TextRun
+          if (textRuns.length > 0) {
+            const olParagraphProps = {
+              children: textRuns,
+              numbering: { reference: 'default-numbering', level: 0 }
+            }
+            if (currentStyle.textAlign) {
+              olParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+            }
+            olItems.push(new Paragraph(olParagraphProps))
           }
-          if (currentStyle.textAlign) {
-            olParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
-          }
-          olItems.push(new Paragraph(olParagraphProps))
         })
         return olItems
+      }
       case 'BLOCKQUOTE': {
         const bqParagraphProps = {
           children: processChildren(node, { italics: true }),
@@ -563,8 +684,8 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
         // 表格行和单元格由 parseTable 统一处理，这里跳过
         return null
       case 'LI':
-        // 列表项由其父级 UL/OL 处理，这里跳过
-        return null
+        // 列表项由其父级 UL/OL 处理，但如果 LI 内有表格，需要直接处理
+        return processChildren(node, currentStyle)
       case 'DIV':
       case 'SPAN':
         // 提取内联样式并传递给子节点（currentStyle 已经包含从 style 属性提取的 textAlign）
@@ -574,18 +695,19 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
           const declarations = inlineStyle.split(';')
           declarations.forEach(d => {
             const [prop, ...valParts] = d.split(':')
-            const val = valParts.join(':').trim().toLowerCase()
-            if (prop.trim().toLowerCase() === 'font-weight' && (val === 'bold' || parseInt(val) >= 700)) {
+            const propLower = prop.trim().toLowerCase()
+            const val = valParts.join(':').trim()
+            if (propLower === 'font-weight' && (val.toLowerCase() === 'bold' || parseInt(val) >= 700)) {
               style.bold = true
-            } else if (prop.trim().toLowerCase() === 'font-style' && val === 'italic') {
+            } else if (propLower === 'font-style' && val.toLowerCase() === 'italic') {
               style.italics = true
-            } else if (prop.trim().toLowerCase() === 'font-family') {
-              // 移除引号
-              style.font = val.replace(/['"]/g, '')
-            } else if (prop.trim().toLowerCase() === 'text-decoration') {
-              if (val.includes('underline')) style.underline = true
-              if (val.includes('line-through')) style.strike = true
-            } else if (prop.trim().toLowerCase() === 'color') {
+            } else if (propLower === 'font-family') {
+              // 移除引号，保留原始大小写（中文字体名需要保留）
+              style.font = val.replace(/['"]/g, '').trim()
+            } else if (propLower === 'text-decoration') {
+              if (val.toLowerCase().includes('underline')) style.underline = true
+              if (val.toLowerCase().includes('line-through')) style.strike = true
+            } else if (propLower === 'color') {
               // 提取颜色值，转换为 16 进制格式（去掉 #）
               const hexColor = rgbToHex(val)
               if (hexColor && hexColor !== '000000') {

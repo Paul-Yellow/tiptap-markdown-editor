@@ -9,6 +9,8 @@ import { BlockButtonsExtension, initBlockButtons, updateBlockButtons } from './e
 import { Table, TableRow, TableHeader, TableCell } from './extensions/Table'
 import { menuItems } from './components/SlashMenu/menuItems.js'
 import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
+import Color from '@tiptap/extension-text-style/color'
+import TextAlign from '@tiptap/extension-text-align'
 
 const install = (app) => {
   app.component('MarkdownEditor', MarkdownEditor)
@@ -33,6 +35,8 @@ export {
   TableCell,
   FontFamily,
   TextStyle,
+  Color,
+  TextAlign,
   menuItems,
 }
 

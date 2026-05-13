@@ -50,6 +50,8 @@ import Underline from '@tiptap/extension-underline'
 import Placeholder from '@tiptap/extension-placeholder'
 import { Table, TableRow, TableHeader, TableCell } from '../../extensions/Table'
 import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
+import Color from '@tiptap/extension-text-style/color'
+import TextAlign from '@tiptap/extension-text-align'
 import { EChartsNode } from '../../EChartsNode'
 import ChartEditDialog from '../ChartEditDialog.vue'
 import SlashMenu from '../SlashMenu/SlashMenu.vue'
@@ -134,7 +136,12 @@ const editor = useEditor({
     TableHeader,
     TableCell,
     TextStyle,
-    FontFamily
+    FontFamily,
+    Color,
+    TextAlign.configure({
+      types: ['heading', 'paragraph'],
+      alignments: ['left', 'center', 'right', 'justify']
+    })
   ],
   editorProps: {
     attributes: {

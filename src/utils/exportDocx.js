@@ -2,6 +2,46 @@ import { Document, Packer, Paragraph, ImageRun, TextRun, AlignmentType, Table, T
 import html2canvas from 'html2canvas'
 
 /**
+ * 将 CSS text-align 值转换为 docx AlignmentType
+ */
+function getTextAlignAlignment(textAlign) {
+  switch (textAlign) {
+    case 'center':
+      return AlignmentType.CENTER
+    case 'right':
+      return AlignmentType.RIGHT
+    case 'justify':
+      return AlignmentType.JUSTIFY
+    case 'left':
+    default:
+      return AlignmentType.LEFT
+  }
+}
+
+/**
+ * 将 RGB 或 RGBA 颜色转换为 16 进制格式
+ */
+function rgbToHex(color) {
+  if (!color || color === 'transparent') return null
+
+  // 如果已经是 16 进制格式
+  if (color.startsWith('#')) {
+    return color.replace('#', '').toUpperCase()
+  }
+
+  // 处理 rgb() 或 rgba() 格式
+  const match = color.match(/rgba?\s*\(\s*(\d+)\s*,\s*(\d+)\s*,\s*(\d+)/)
+  if (match) {
+    const r = parseInt(match[1]).toString(16).padStart(2, '0')
+    const g = parseInt(match[2]).toString(16).padStart(2, '0')
+    const b = parseInt(match[3]).toString(16).padStart(2, '0')
+    return (r + g + b).toUpperCase()
+  }
+
+  return null
+}
+
+/**
  * 将编辑器内容导出为 DOCX（保持文本格式，图表转图片）
  * @param {HTMLElement} element - 编辑器 DOM 元素
  * @param {string} filename - 文件名
@@ -274,6 +314,20 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
 
     const tagName = node.tagName?.toUpperCase()
 
+    // 提取当前节点的 style 属性中的 textAlign
+    let currentStyle = { ...parentStyle }
+    const inlineStyle = node.getAttribute('style')
+    if (inlineStyle) {
+      const declarations = inlineStyle.split(';')
+      declarations.forEach(d => {
+        const [prop, ...valParts] = d.split(':')
+        const val = valParts.join(':').trim()
+        if (prop.trim().toLowerCase() === 'text-align') {
+          currentStyle.textAlign = val.toLowerCase()
+        }
+      })
+    }
+
     // 检查是否是图表容器
     if (tagName === 'DIV' && node.classList.contains('echarts-code-block')) {
       const chartContainer = node.querySelector('.echarts-code-chart-container')
@@ -326,44 +380,78 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
     }
 
     switch (tagName) {
-      case 'H1':
-        return new Paragraph({
+      case 'H1': {
+        const paragraphProps = {
           children: processChildren(node, { bold: true, size: 48, font: 'Calibri', color: '000000' }),
           spacing: { after: 200, before: 200 }
-        })
-      case 'H2':
-        return new Paragraph({
+        }
+        if (currentStyle.textAlign) {
+          paragraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
+        return new Paragraph(paragraphProps)
+      }
+      case 'H2': {
+        const paragraphProps = {
           children: processChildren(node, { bold: true, size: 36, font: 'Calibri', color: '000000' }),
           spacing: { after: 160, before: 160 }
-        })
-      case 'H3':
-        return new Paragraph({
+        }
+        if (currentStyle.textAlign) {
+          paragraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
+        return new Paragraph(paragraphProps)
+      }
+      case 'H3': {
+        const paragraphProps = {
           children: processChildren(node, { bold: true, size: 28, font: 'Calibri', color: '000000' }),
           spacing: { after: 120, before: 120 }
-        })
-      case 'H4':
-        return new Paragraph({
+        }
+        if (currentStyle.textAlign) {
+          paragraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
+        return new Paragraph(paragraphProps)
+      }
+      case 'H4': {
+        const paragraphProps = {
           children: processChildren(node, { bold: true, size: 24, font: 'Calibri', color: '000000' }),
           spacing: { after: 100, before: 100 }
-        })
-      case 'H5':
-        return new Paragraph({
+        }
+        if (currentStyle.textAlign) {
+          paragraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
+        return new Paragraph(paragraphProps)
+      }
+      case 'H5': {
+        const paragraphProps = {
           children: processChildren(node, { bold: true, size: 22, font: 'Calibri', color: '000000' }),
           spacing: { after: 80, before: 80 }
-        })
-      case 'H6':
-        return new Paragraph({
+        }
+        if (currentStyle.textAlign) {
+          paragraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
+        return new Paragraph(paragraphProps)
+      }
+      case 'H6': {
+        const paragraphProps = {
           children: processChildren(node, { bold: true, size: 20, font: 'Calibri', color: '000000' }),
           spacing: { after: 60, before: 60 }
-        })
+        }
+        if (currentStyle.textAlign) {
+          paragraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
+        return new Paragraph(paragraphProps)
+      }
       case 'P':
-        if (parentStyle._noBlock) {
+        if (currentStyle._noBlock) {
           // 在列表/表格内，<p> 不创建新 Paragraph，直接返回子 TextRuns
-          return processChildren(node, parentStyle)
+          return processChildren(node, currentStyle)
         }
         const pChildren = processChildren(node)
+        const pParagraphProps = { children: pChildren }
+        if (currentStyle.textAlign) {
+          pParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
         if (pChildren.length > 0) {
-          return new Paragraph({ children: pChildren })
+          return new Paragraph(pParagraphProps)
         }
         // 空段落但有内容（可能是格式文本）
         const innerText = node.textContent.trim()
@@ -421,29 +509,42 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
         const ulItems = []
         Array.from(node.children).filter(el => el.tagName?.toUpperCase() === 'LI').forEach(li => {
           // _noBlock: true 让 li 内的 <p> 不创建新 Paragraph，直接返回 TextRuns
-          ulItems.push(new Paragraph({
-            children: processChildren(li, { ...parentStyle, _noBlock: true }).filter(Boolean),
+          const ulParagraphProps = {
+            children: processChildren(li, { ...currentStyle, _noBlock: true }).filter(Boolean),
             bullet: { level: 0 }
-          }))
+          }
+          if (currentStyle.textAlign) {
+            ulParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+          }
+          ulItems.push(new Paragraph(ulParagraphProps))
         })
         return ulItems
       case 'OL':
         const olItems = []
         Array.from(node.children).filter(el => el.tagName?.toUpperCase() === 'LI').forEach((li) => {
-          olItems.push(new Paragraph({
-            children: processChildren(li, { ...parentStyle, _noBlock: true }).filter(Boolean),
+          const olParagraphProps = {
+            children: processChildren(li, { ...currentStyle, _noBlock: true }).filter(Boolean),
             numbering: { reference: 'default-numbering', level: 0 }
-          }))
+          }
+          if (currentStyle.textAlign) {
+            olParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+          }
+          olItems.push(new Paragraph(olParagraphProps))
         })
         return olItems
-      case 'BLOCKQUOTE':
-        return new Paragraph({
+      case 'BLOCKQUOTE': {
+        const bqParagraphProps = {
           children: processChildren(node, { italics: true }),
           spacing: { left: 400 },
           border: {
             left: { color: 'CCCCCC', space: 1, value: 'single', size: 3 }
           }
-        })
+        }
+        if (currentStyle.textAlign) {
+          bqParagraphProps.alignment = getTextAlignAlignment(currentStyle.textAlign)
+        }
+        return new Paragraph(bqParagraphProps)
+      }
       case 'HR':
         return new Paragraph({
           border: {
@@ -466,8 +567,8 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
         return null
       case 'DIV':
       case 'SPAN':
-        // 提取内联样式并传递给子节点
-        const style = { ...parentStyle }
+        // 提取内联样式并传递给子节点（currentStyle 已经包含从 style 属性提取的 textAlign）
+        const style = { ...currentStyle }
         const inlineStyle = node.getAttribute('style')
         if (inlineStyle) {
           const declarations = inlineStyle.split(';')
@@ -484,6 +585,12 @@ function parseHtmlToDocxElements(element, chartImages, chartDimensions) {
             } else if (prop.trim().toLowerCase() === 'text-decoration') {
               if (val.includes('underline')) style.underline = true
               if (val.includes('line-through')) style.strike = true
+            } else if (prop.trim().toLowerCase() === 'color') {
+              // 提取颜色值，转换为 16 进制格式（去掉 #）
+              const hexColor = rgbToHex(val)
+              if (hexColor && hexColor !== '000000') {
+                style.color = hexColor
+              }
             }
           })
         }

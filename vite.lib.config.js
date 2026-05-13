@@ -17,6 +17,7 @@ export default defineConfig({
         '@tiptap/core',
         '@tiptap/vue-3',
         '@tiptap/extension-text-style',
+        '@tiptap/extension-text-align',
       ],
       output: {
         globals: {
@@ -24,6 +25,7 @@ export default defineConfig({
           '@tiptap/core': 'tiptapCore',
           '@tiptap/vue-3': 'tiptapVue3',
           '@tiptap/extension-text-style': 'tiptapTextStyle',
+          '@tiptap/extension-text-align': 'tiptapTextAlign',
         },
       },
     },

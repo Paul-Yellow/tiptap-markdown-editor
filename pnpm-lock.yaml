@@ -29,6 +29,9 @@ importers:
       '@tiptap/extension-table-row':
         specifier: ^3.22.4
         version: 3.22.4(@tiptap/extension-table@3.22.4(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))(@tiptap/pm@3.22.4))
+      '@tiptap/extension-text-align':
+        specifier: ^3.23.1
+        version: 3.23.1(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))
       '@tiptap/extension-text-style':
         specifier: ^3.22.5
         version: 3.22.5(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))
@@ -544,6 +547,11 @@ packages:
     peerDependencies:
       '@tiptap/core': 3.22.4
       '@tiptap/pm': 3.22.4
+
+  '@tiptap/extension-text-align@3.23.1':
+    resolution: {integrity: sha512-ap4ZN31v57mVX2P+0OoW5iO+ehsUNe0C5MgF/Ta2F/HRmTCc1M1mFqYUCk8zJYX1TFRV18vqK2j6STRBk0R8ng==, tarball: https://registry.npmmirror.com/@tiptap/extension-text-align/-/extension-text-align-3.23.1.tgz}
+    peerDependencies:
+      '@tiptap/core': 3.23.1
 
   '@tiptap/extension-text-style@3.22.5':
     resolution: {integrity: sha512-jt63jy8YbhZJUGMxTUzeivLhowGtFp6YbCFrrmZJ7G6IHu8X8LJzO81ksz5nT5l8DKpldGwnINUfA6iE91JIAg==, tarball: https://registry.npmmirror.com/@tiptap/extension-text-style/-/extension-text-style-3.22.5.tgz}
@@ -1261,6 +1269,10 @@ snapshots:
     dependencies:
       '@tiptap/core': 3.22.4(@tiptap/pm@3.22.4)
       '@tiptap/pm': 3.22.4
+
+  '@tiptap/extension-text-align@3.23.1(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))':
+    dependencies:
+      '@tiptap/core': 3.22.4(@tiptap/pm@3.22.4)
 
   '@tiptap/extension-text-style@3.22.5(@tiptap/core@3.22.4(@tiptap/pm@3.22.4))':
     dependencies:

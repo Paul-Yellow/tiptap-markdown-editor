@@ -1,5 +1,32 @@
 <template>
   <div v-if="visible" class="format-toolbar" :style="toolbarStyle">
+    <!-- 块类型选择器 -->
+    <div class="block-type-wrapper" ref="blockTypeWrapper">
+      <button
+        class="block-type-btn"
+        title="转换为"
+        @click.stop="toggleBlockTypeMenu"
+        @mousedown.stop
+      >
+        <span class="block-type-label">{{ currentBlockTypeLabel }}</span>
+        <span class="block-type-arrow">▼</span>
+      </button>
+      <div v-if="showBlockTypeMenu" class="block-type-dropdown" @mousedown.stop>
+        <div
+          v-for="item in blockTypeItems"
+          :key="item.label"
+          class="block-type-item"
+          @click="applyBlockType(item)"
+        >
+          <span class="block-type-item-icon">{{ item.icon }}</span>
+          <div class="block-type-item-content">
+            <span class="block-type-item-label">{{ item.label }}</span>
+            <span class="block-type-item-desc">{{ item.desc }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="toolbar-divider"></div>
     <select
       v-model="currentFont"
       class="font-select"
@@ -105,6 +132,19 @@ const showColorPicker = ref(false)
 const colorPickerWrapper = ref(null)
 const pendingSelection = ref(null) // 记录待处理的选区
 const isSelecting = ref(false) // 是否正在选择中
+const showBlockTypeMenu = ref(false)
+const blockTypeWrapper = ref(null)
+
+const blockTypeItems = [
+  { label: '正文', desc: '普通文本段落', icon: '¶', command: 'setParagraph' },
+  { label: '标题 1', desc: '大章节标题', icon: 'H1', command: 'setHeading', attrs: { level: 1 } },
+  { label: '标题 2', desc: '中等章节标题', icon: 'H2', command: 'setHeading', attrs: { level: 2 } },
+  { label: '标题 3', desc: '小章节标题', icon: 'H3', command: 'setHeading', attrs: { level: 3 } },
+  { label: '引用', desc: '引用文本块', icon: '❝', command: 'toggleBlockquote' },
+  { label: '无序列表', desc: '简单无序列表', icon: '•', command: 'toggleBulletList' },
+  { label: '有序列表', desc: '带序号的列表', icon: '1.', command: 'toggleOrderedList' },
+  { label: '代码块', desc: '代码片段', icon: '</>', command: 'toggleCodeBlock' },
+]
 
 const presetColors = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef',
@@ -143,6 +183,53 @@ function isActive(format) {
     return props.editor?.isActive({ textAlign: format }) || false
   }
   return props.editor?.isActive(format) || false
+}
+
+// 获取当前块类型的标签
+const currentBlockTypeLabel = computed(() => {
+  if (!props.editor) return '正文'
+
+  if (props.editor.isActive('heading', { level: 1 })) return '标题 1'
+  if (props.editor.isActive('heading', { level: 2 })) return '标题 2'
+  if (props.editor.isActive('heading', { level: 3 })) return '标题 3'
+  if (props.editor.isActive('blockquote')) return '引用'
+  if (props.editor.isActive('bulletList')) return '无序列表'
+  if (props.editor.isActive('orderedList')) return '有序列表'
+  if (props.editor.isActive('codeBlock')) return '代码块'
+
+  return '正文'
+})
+
+function toggleBlockTypeMenu() {
+  showBlockTypeMenu.value = !showBlockTypeMenu.value
+}
+
+function applyBlockType(item) {
+  if (!props.editor) return
+  showBlockTypeMenu.value = false
+
+  const chain = props.editor.chain().focus()
+
+  switch (item.command) {
+    case 'setParagraph':
+      chain.setParagraph().run()
+      break
+    case 'setHeading':
+      chain.toggleHeading({ level: item.attrs.level }).run()
+      break
+    case 'toggleBlockquote':
+      chain.toggleBlockquote().run()
+      break
+    case 'toggleBulletList':
+      chain.toggleBulletList().run()
+      break
+    case 'toggleOrderedList':
+      chain.toggleOrderedList().run()
+      break
+    case 'toggleCodeBlock':
+      chain.toggleCodeBlock().run()
+      break
+  }
 }
 
 const hasLink = computed(() => props.editor?.isActive('link') || false)
@@ -380,6 +467,9 @@ function handleClickOutside(event) {
   if (colorPickerWrapper.value && !colorPickerWrapper.value.contains(event.target)) {
     showColorPicker.value = false
   }
+  if (blockTypeWrapper.value && !blockTypeWrapper.value.contains(event.target)) {
+    showBlockTypeMenu.value = false
+  }
 }
 
 watch(() => props.editor, (newEditor, oldEditor) => {
@@ -520,5 +610,94 @@ watch(() => props.editor, (newEditor, oldEditor) => {
 .alignment-buttons {
   display: flex;
   gap: 2px;
+}
+
+.block-type-wrapper {
+  position: relative;
+}
+
+.block-type-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+}
+
+.block-type-btn:hover {
+  background: #f0f0f0;
+}
+
+.block-type-label {
+  max-width: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.block-type-arrow {
+  font-size: 10px;
+  color: #999;
+}
+
+.block-type-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 1001;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  margin-top: 4px;
+  min-width: 160px;
+}
+
+.block-type-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.block-type-item:hover {
+  background: #f0f0f0;
+}
+
+.block-type-item-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #e8e8e8;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333;
+}
+
+.block-type-item-content {
+  display: flex;
+  flex-direction: column;
+}
+
+.block-type-item-label {
+  font-size: 13px;
+  color: #333;
+  font-weight: 500;
+}
+
+.block-type-item-desc {
+  font-size: 11px;
+  color: #999;
 }
 </style>

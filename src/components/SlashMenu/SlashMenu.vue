@@ -73,17 +73,17 @@ defineExpose({
   border: 1px solid #e0e0e0;
   border-radius: 12px;
   box-shadow: 0 4px 24px rgba(0,0,0,0.12);
-  padding: 6px;
-  max-height: 360px;
+  padding: 8px;
+  max-height: 420px;
   overflow-y: auto;
-  min-width: 260px;
+  min-width: 300px;
 }
 
 .slash-menu-item {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 8px 10px;
+  gap: 12px;
+  padding: 10px 12px;
   border-radius: 8px;
   cursor: pointer;
   user-select: none;
@@ -95,9 +95,9 @@ defineExpose({
 }
 
 .slash-menu-item-icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 6px;
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
   background: #f5f5f5;
   display: flex;
   align-items: center;
@@ -114,7 +114,7 @@ defineExpose({
 .slash-menu-item-desc {
   font-size: 12px;
   color: #999;
-  margin-top: 1px;
+  margin-top: 2px;
 }
 
 .slash-menu-empty {

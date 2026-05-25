@@ -224,8 +224,8 @@ onMounted(() => {
         const { view, state } = editor.value
         const { $from } = state.selection
         const coords = view.coordsAtPos($from.pos)
-        const menuHeight = 374
-        const menuWidth = 260
+        const menuHeight = 438
+        const menuWidth = 300
         const viewportHeight = window.innerHeight
         const viewportWidth = window.innerWidth
 

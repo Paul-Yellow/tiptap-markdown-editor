@@ -4,6 +4,7 @@ let handleContainer = null
 let handleEl = null
 let hotspotEl = null
 let currentEditor = null
+let currentBlockEl = null // Track the block the button is currently positioned at
 
 function getOrCreateHandle() {
   if (handleContainer) return { handleContainer, handleEl, hotspotEl }
@@ -18,7 +19,7 @@ function getOrCreateHandle() {
         z-index: 9999;
         display: flex;
         align-items: center;
-        gap: 2px;
+        gap: 6px;
         opacity: 0;
         transition: opacity 0.15s;
         pointer-events: none;
@@ -31,10 +32,10 @@ function getOrCreateHandle() {
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 24px;
-        height: 24px;
-        border-radius: 4px;
-        font-size: 18px;
+        width: 32px;
+        height: 32px;
+        border-radius: 6px;
+        font-size: 22px;
         line-height: 1;
         color: #999;
         cursor: pointer;
@@ -81,16 +82,21 @@ function hideHandle() {
   if (handleContainer) {
     handleContainer.classList.remove('visible')
   }
+  currentBlockEl = null
 }
 
 function showHandleForBlock(blockEl) {
   if (!blockEl || !handleContainer) return
 
+  currentBlockEl = blockEl
   const rect = blockEl.getBoundingClientRect()
-  const handleLeft = rect.left - 36
+  const isListItem = blockEl.tagName.toLowerCase() === 'li'
+  // 列表项需要更大的间距，因为前面有项目符号/序号
+  const handleOffset = isListItem ? 60 : 44
+  const handleLeft = rect.left - handleOffset
   handleContainer.style.left = handleLeft + 'px'
-  handleContainer.style.top = (rect.top + (rect.height - 24) / 2) + 'px'
-  hotspotEl.style.left = '24px'
+  handleContainer.style.top = (rect.top + (rect.height - 32) / 2) + 'px'
+  hotspotEl.style.left = '32px'
   hotspotEl.style.width = '50px'
   handleContainer.classList.add('visible')
 }
@@ -133,40 +139,45 @@ function updateHandlePosition(editor) {
   }
 
   if (!editor.isFocused) {
-    // 编辑器未聚焦时，只在鼠标悬停时显示
     return
   }
 
   const { state, view } = editor
   const { $from } = state.selection
 
-  // 找到当前光标所在的块元素
   let pos
   try {
     pos = $from.before($from.depth)
   } catch {
-    // atom 节点等特殊情况，无法获取 block 前位置
     hideHandle()
     return
   }
   const node = view.nodeDOM(pos)
 
-  if (node) {
-    // 找到块级元素
-    let blockEl = node
-    while (blockEl && blockEl.nodeType === 1) {
-      const tag = blockEl.tagName?.toLowerCase()
-      if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'ul', 'ol'].includes(tag) ||
-          (tag === 'div' && blockEl.hasAttribute('data-node-view'))) {
-        showHandleForBlock(blockEl)
-        return
-      }
-      blockEl = blockEl.parentElement
-      if (blockEl === view.dom) break
-    }
+  // Get the actual element to check (text nodes need parentElement)
+  const el = node && node.nodeType === 1 ? node : node?.parentElement
+  if (!el) {
+    hideHandle()
+    return
   }
 
-  // 未找到合适的块元素时隐藏按钮
+  // If cursor is inside a list, let hover mechanism control the button
+  if (el.closest('li, ul, ol')) {
+    return
+  }
+
+  // Find the block-level ancestor for non-list elements
+  let blockEl = el
+  while (blockEl && blockEl !== view.dom) {
+    const tag = blockEl.tagName?.toLowerCase()
+    if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre'].includes(tag) ||
+        (tag === 'div' && blockEl.hasAttribute('data-node-view'))) {
+      showHandleForBlock(blockEl)
+      return
+    }
+    blockEl = blockEl.parentElement
+  }
+
   hideHandle()
 }
 
@@ -183,6 +194,12 @@ function setupBlockListeners(editor, storage) {
       el.removeEventListener('mouseleave', el._btnHide)
     })
   }
+  if (storage._listMove) {
+    pmDom.removeEventListener('mousemove', storage._listMove)
+  }
+  if (storage._editorOut) {
+    pmDom.removeEventListener('mouseleave', storage._editorOut)
+  }
 
   // Set up mousedown handler on handle
   const existingMousedown = handleEl._mousedownHandler
@@ -190,22 +207,33 @@ function setupBlockListeners(editor, storage) {
   handleEl._mousedownHandler = (e) => {
     e.preventDefault()
     e.stopPropagation()
+
+    // Focus the editor at the currently hovered block before opening menu
+    if (currentBlockEl && currentEditor) {
+      const view = currentEditor.view
+      const pos = view.posAtDOM(currentBlockEl, 0)
+      if (pos !== undefined && pos >= 0) {
+        currentEditor.commands.focus(pos, { scrollIntoView: false })
+      }
+    }
+
     storage.onPlusClick?.(handleEl)
   }
   handleEl.addEventListener('mousedown', handleEl._mousedownHandler)
 
-  // Get all block elements
+  // Get all block elements (non-list)
   const blockEls = []
+
   for (const child of pmDom.children) {
     if (child.nodeType !== 1) continue
     const tag = child.tagName.toLowerCase()
-    if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'hr', 'ul', 'ol'].includes(tag) ||
+    if (['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'pre', 'hr'].includes(tag) ||
         (tag === 'div' && child.hasAttribute('data-node-view'))) {
       blockEls.push(child)
     }
   }
 
-  // Attach hover listeners
+  // Attach hover listeners to non-list blocks
   blockEls.forEach(blockEl => {
     if (blockEl._btnShow) blockEl.removeEventListener('mouseenter', blockEl._btnShow)
     if (blockEl._btnHide) blockEl.removeEventListener('mouseleave', blockEl._btnHide)
@@ -215,7 +243,6 @@ function setupBlockListeners(editor, storage) {
     }
 
     const hideFn = () => {
-      // 如果编辑器聚焦且光标在此块内，不隐藏
       if (editor.isFocused) {
         try {
           const { $from } = editor.state.selection
@@ -224,9 +251,7 @@ function setupBlockListeners(editor, storage) {
           if (node && blockEl.contains(node)) {
             return
           }
-        } catch {
-          // atom 节点等特殊情况，直接隐藏
-        }
+        } catch { /* ignore */ }
       }
 
       setTimeout(() => {
@@ -241,6 +266,30 @@ function setupBlockListeners(editor, storage) {
     blockEl._btnShow = showFn
     blockEl._btnHide = hideFn
   })
+
+  // Single mousemove on editor container for list items
+  // This works regardless of ProseMirror DOM updates since we check from elementFromPoint
+  const mouseMoveFn = (e) => {
+    const target = document.elementFromPoint(e.clientX, e.clientY)
+    if (!target || !pmDom.contains(target)) return
+    const li = target.closest('li')
+    if (li && pmDom.contains(li)) {
+      showHandleForBlock(li)
+    }
+  }
+
+  const editorOutFn = () => {
+    setTimeout(() => {
+      if (!handleContainer.matches(':hover')) {
+        handleContainer.classList.remove('visible')
+      }
+    }, 50)
+  }
+
+  pmDom.addEventListener('mousemove', mouseMoveFn)
+  pmDom.addEventListener('mouseleave', editorOutFn)
+  storage._listMove = mouseMoveFn
+  storage._editorOut = editorOutFn
 
   storage._blockEls = blockEls
 }

@@ -38,8 +38,8 @@ function open(x, y, q = '') {
   visible.value = true
 
   // 确保菜单不超出视口边界
-  const menuWidth = 260
-  const menuHeight = 360
+  const menuWidth = 300
+  const menuHeight = 420
   const viewportWidth = window.innerWidth
   const viewportHeight = window.innerHeight
 

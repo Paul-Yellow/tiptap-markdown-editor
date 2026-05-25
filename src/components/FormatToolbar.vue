@@ -103,6 +103,8 @@ const currentFont = ref('')
 const currentColor = ref('')
 const showColorPicker = ref(false)
 const colorPickerWrapper = ref(null)
+const pendingSelection = ref(null) // 记录待处理的选区
+const isSelecting = ref(false) // 是否正在选择中
 
 const presetColors = [
   '#000000', '#434343', '#666666', '#999999', '#b7b7b7', '#cccccc', '#d9d9d9', '#efefef',
@@ -221,6 +223,7 @@ function updatePosition() {
     // 无选中，隐藏工具栏
     visible.value = false
     showLinkInput.value = false
+    pendingSelection.value = null
     return
   }
 
@@ -228,8 +231,22 @@ function updatePosition() {
   const { $from } = props.editor.state.selection
   if ($from.parent.type.name === 'codeBlock') {
     visible.value = false
+    pendingSelection.value = null
     return
   }
+
+  // 如果正在选择中，只记录选区，不立即显示
+  if (isSelecting.value) {
+    pendingSelection.value = { from, to }
+    return
+  }
+
+  // 选区确定后，显示工具栏
+  showToolbar(from, to)
+}
+
+function showToolbar(from, to) {
+  if (!props.editor) return
 
   // 更新当前字体选中状态 - 先检查 textStyle mark，如果没有则从 DOM 获取实际渲染的字体
   let fontFamily = ''
@@ -281,6 +298,7 @@ function updatePosition() {
   currentColor.value = color || ''
 
   visible.value = true
+  pendingSelection.value = null
 
   const { view } = props.editor
   const start = view.coordsAtPos(from)
@@ -309,6 +327,20 @@ function updatePosition() {
   }
 }
 
+// 鼠标按下时标记正在选择
+function handleMouseDown() {
+  isSelecting.value = true
+  visible.value = false // 隐藏工具栏
+}
+
+// 鼠标松开时检查是否有待显示的选区
+function handleMouseUp() {
+  isSelecting.value = false
+  if (pendingSelection.value) {
+    showToolbar(pendingSelection.value.from, pendingSelection.value.to)
+  }
+}
+
 function updateFontState() {
   // textStyle 包含 fontFamily 属性
   const textStyleAttrs = props.editor.getAttributes('textStyle')
@@ -325,11 +357,22 @@ function updateFontState() {
 
 onMounted(() => {
   props.editor?.on('transaction', updatePosition)
+  // 监听编辑器内的鼠标事件
+  const editorDom = props.editor?.view.dom
+  if (editorDom) {
+    editorDom.addEventListener('mousedown', handleMouseDown)
+    editorDom.addEventListener('mouseup', handleMouseUp)
+  }
   document.addEventListener('click', handleClickOutside)
 })
 
 onBeforeUnmount(() => {
   props.editor?.off('transaction', updatePosition)
+  const editorDom = props.editor?.view.dom
+  if (editorDom) {
+    editorDom.removeEventListener('mousedown', handleMouseDown)
+    editorDom.removeEventListener('mouseup', handleMouseUp)
+  }
   document.removeEventListener('click', handleClickOutside)
 })
 
@@ -342,9 +385,15 @@ function handleClickOutside(event) {
 watch(() => props.editor, (newEditor, oldEditor) => {
   if (oldEditor) {
     oldEditor.off('transaction', updatePosition)
+    const oldDom = oldEditor.view.dom
+    oldDom.removeEventListener('mousedown', handleMouseDown)
+    oldDom.removeEventListener('mouseup', handleMouseUp)
   }
   if (newEditor) {
     newEditor.on('transaction', updatePosition)
+    const newDom = newEditor.view.dom
+    newDom.addEventListener('mousedown', handleMouseDown)
+    newDom.addEventListener('mouseup', handleMouseUp)
   }
 })
 </script>

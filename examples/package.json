@@ -9,11 +9,11 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "vue": "^3.5.0",
-    "@paulyellow/tiptap-markdown-editor": "^1.0.0",
+    "@paulyellow/tiptap-markdown-editor": "^1.0.7",
     "@tiptap/core": "^3.22.4",
     "@tiptap/extension-text-style": "^3.22.4",
-    "@tiptap/vue-3": "^3.22.4"
+    "@tiptap/vue-3": "^3.22.4",
+    "vue": "^3.5.0"
   },
   "devDependencies": {
     "@vitejs/plugin-vue": "^5.0.0",

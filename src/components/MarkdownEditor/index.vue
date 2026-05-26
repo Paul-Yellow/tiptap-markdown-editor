@@ -79,11 +79,10 @@ const emit = defineEmits(['update:modelValue', 'change'])
 
 const chartDialog = ref(null)
 let editingNodePos = null
-let isMounted = false
 let lastEmittedValue = ''
 
 // Track last external value to prevent feedback loop during streaming
-let lastExternalValue = ''
+let lastExternalValue = null
 
 const editorContainerRef = ref(null)
 const slashMenuRef = ref(null)
@@ -208,8 +207,7 @@ let isUpdatingFromExternal = false
 watch(
   () => props.modelValue,
   (val) => {
-    if (val === lastEmittedValue) return
-    if (!isMounted || !editor.value) return
+    if (!editor.value) return
 
     if (props.streaming) {
       // Streaming mode: only update if external value changed
@@ -217,6 +215,7 @@ watch(
       lastExternalValue = val
 
       const currentMd = editor.value.storage.markdown?.getMarkdown?.() || ''
+      // Skip if content hasn't changed
       if (val === currentMd) return
 
       // If new value is an append of current content, only insert the diff
@@ -231,7 +230,7 @@ watch(
           if (needsFullReparse) {
             // Full replace for markdown structure changes
             // Use markdown extension's parse method to convert markdown to JSON
-            const parsedContent = editor.value.storage.markdown?.parse?.(val)
+            const parsedContent = editor.value.markdown?.parse?.(val)
             if (parsedContent) {
               isUpdatingFromExternal = true
               editor.value.commands.setContent(parsedContent)
@@ -244,15 +243,18 @@ watch(
         }
         return
       }
-    }
+    } else {
+      // Non-streaming: avoid feedback loop
+      const currentMd = editor.value.storage.markdown?.getMarkdown?.() || ''
+      if (val === currentMd) return
 
-    // Non-streaming or content changed significantly: replace entirely
-    // Use markdown extension's parse method
-    const parsedContent = editor.value.storage.markdown?.parse?.(val)
-    if (parsedContent) {
-      isUpdatingFromExternal = true
-      editor.value.commands.setContent(parsedContent)
-      isUpdatingFromExternal = false
+      // Replace entirely
+      const parsedContent = editor.value.markdown?.parse?.(val)
+      if (parsedContent) {
+        isUpdatingFromExternal = true
+        editor.value.commands.setContent(parsedContent)
+        isUpdatingFromExternal = false
+      }
     }
   }
 )
@@ -260,7 +262,6 @@ watch(
 // Prevent feedback loop during streaming
 
 onMounted(() => {
-  isMounted = true
 
   // Update button positions and slash menu state on content changes
   editor.value?.on('transaction', () => {

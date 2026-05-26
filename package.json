@@ -1,6 +1,6 @@
 {
-  "name": "tiptap-markdown-editor",
-  "version": "1.0.0",
+  "name": "@paulyellow/tiptap-markdown-editor",
+  "version": "1.0.7",
   "description": "A Markdown editor built with Vue 3 and TipTap, supporting ECharts, tables, slash menus and more",
   "type": "module",
   "private": false,

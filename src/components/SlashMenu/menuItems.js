@@ -5,8 +5,18 @@ const defaultChart = JSON.stringify({
   series: [{ type: 'bar', data: [10, 20, 30] }]
 }, null, 2)
 
-// Get target node type name from command type
-function getTargetTypeName(type) {
+// Slash menu: delete "/" text and convert current block
+function slashAction(editor, type, attrs) {
+  const { state } = editor
+  const { $from } = state.selection
+  const parentNode = $from.parent
+  const text = parentNode.textBetween(0, $from.parentOffset, undefined, ' ')
+  const match = text.match(/\/([^\s]*)$/)
+  if (!match) return
+
+  const slashStart = $from.pos - match[0].length
+  const slashEnd = $from.pos
+
   const typeMap = {
     'setHeading': 'heading',
     'setParagraph': 'paragraph',
@@ -18,68 +28,43 @@ function getTargetTypeName(type) {
     'setCodeBlock': 'codeBlock',
     'setEChartsChart': 'echartsChart'
   }
-  return typeMap[type]
-}
 
-// Convert current block to target type (used by slash menu and plus menu)
-function convertBlock(editor, type, attrs) {
-  const { state, view } = editor
-  const { $from } = state.selection
-  const nodePos = $from.before()
-  const node = $from.node()
+  const targetTypeName = typeMap[type]
 
-  const targetTypeName = getTargetTypeName(type)
   if (!targetTypeName) {
-    // For toggle commands without mapping
-    editor.chain().focus()[type](attrs).run()
+    editor.chain().deleteRange({ from: slashStart, to: slashEnd }).focus()[type](attrs).run()
     return
   }
 
-  const targetNodeType = state.schema.nodes[targetTypeName]
-  if (!targetNodeType) return
+  // For types that have direct TipTap chain commands, use the chain API
+  // This handles position mapping automatically
+  const chain = editor.chain().deleteRange({ from: slashStart, to: slashEnd })
 
-  let tr = state.tr
-
-  if (type === 'setHorizontalRule') {
-    // Replace with horizontal rule
-    const hrNode = state.schema.nodes.horizontalRule.create()
-    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, hrNode)
-  } else if (type === 'setEChartsChart') {
-    // Replace with ECharts node
-    const chartNode = state.schema.nodes.echartsChart.create({ chartData: attrs })
-    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, chartNode)
-  } else if (targetTypeName === 'bulletList' || targetTypeName === 'orderedList') {
-    // For lists, we need to wrap content in listItem nodes
-    const listItemNodeType = state.schema.nodes.listItem
-
-    // Get text content from current node
-    const textContent = node.textContent
-    const listItemNode = listItemNodeType.create(null, textContent ? state.schema.text(textContent) : null)
-    const listNode = targetNodeType.create(null, listItemNode)
-    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, listNode)
-  } else {
-    // Create new node with same content
-    const newNode = targetNodeType.create(attrs, node.content)
-    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, newNode)
+  switch (targetTypeName) {
+    case 'heading':
+      chain.focus().setHeading(attrs).run()
+      break
+    case 'paragraph':
+      chain.focus().setParagraph().run()
+      break
+    case 'blockquote':
+      chain.focus().toggleBlockquote().run()
+      break
+    case 'bulletList':
+      chain.focus().toggleBulletList().run()
+      break
+    case 'orderedList':
+      chain.focus().toggleOrderedList().run()
+      break
+    case 'codeBlock':
+      chain.focus().toggleCodeBlock().run()
+      break
+    case 'horizontalRule':
+      chain.focus().setHorizontalRule().run()
+      break
+    default:
+      chain.focus()[type](attrs).run()
   }
-
-  view.dispatch(tr)
-}
-
-// Slash menu: convert current block (requires "/" prefix)
-function slashAction(editor, type, attrs) {
-  const { state } = editor
-  const { $from } = state.selection
-  const text = $from.parent.textBetween(0, $from.parentOffset)
-  const match = text.match(/\/([^\s]*)$/)
-  if (!match) return
-
-  // Delete the slash text first
-  const slashStart = $from.pos - match[0].length
-  editor.chain().deleteRange({ from: slashStart, to: $from.pos }).run()
-
-  // Now convert the block
-  convertBlock(editor, type, attrs)
 }
 
 // Plus menu: convert current block if has content, insert new block if empty
@@ -90,12 +75,60 @@ function plusAction(editor, type, attrs) {
   const hasContent = node.content.size > 0
 
   if (hasContent) {
-    // Current block has content: convert it
     convertBlock(editor, type, attrs)
   } else {
-    // Current block is empty: just change its type
     editor.chain().focus()[type](attrs).run()
   }
+}
+
+// Convert current block to target type (used by plus menu with content)
+function convertBlock(editor, type, attrs) {
+  const { state, view } = editor
+  const { $from } = state.selection
+  const nodePos = $from.before()
+  const node = $from.node()
+
+  const typeMap = {
+    'setHeading': 'heading',
+    'setParagraph': 'paragraph',
+    'toggleBlockquote': 'blockquote',
+    'toggleBulletList': 'bulletList',
+    'toggleOrderedList': 'orderedList',
+    'toggleCodeBlock': 'codeBlock',
+    'setHorizontalRule': 'horizontalRule',
+    'setCodeBlock': 'codeBlock',
+    'setEChartsChart': 'echartsChart'
+  }
+
+  const targetTypeName = typeMap[type]
+  if (!targetTypeName) {
+    editor.chain().focus()[type](attrs).run()
+    return
+  }
+
+  const targetNodeType = state.schema.nodes[targetTypeName]
+  if (!targetNodeType) return
+
+  let tr = state.tr
+
+  if (type === 'setHorizontalRule') {
+    const hrNode = state.schema.nodes.horizontalRule.create()
+    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, hrNode)
+  } else if (type === 'setEChartsChart') {
+    const chartNode = state.schema.nodes.echartsChart.create({ chartData: attrs })
+    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, chartNode)
+  } else if (targetTypeName === 'bulletList' || targetTypeName === 'orderedList') {
+    const listItemNodeType = state.schema.nodes.listItem
+    const textContent = node.textContent
+    const listItemNode = listItemNodeType.create(null, textContent ? state.schema.text(textContent) : null)
+    const listNode = targetNodeType.create(null, listItemNode)
+    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, listNode)
+  } else {
+    const newNode = targetNodeType.create(attrs, node.content)
+    tr = tr.replaceWith(nodePos, nodePos + node.nodeSize, newNode)
+  }
+
+  view.dispatch(tr)
 }
 
 export const menuItems = [
@@ -197,10 +230,9 @@ export const menuItems = [
     icon: 'chart',
     keywords: '图表 echarts 可视化',
     command: (editor) => {
-      // Delete slash text first
       const { state } = editor
       const { $from } = state.selection
-      const text = $from.parent.textBetween(0, $from.parentOffset)
+      const text = $from.parent.textBetween(0, $from.parentOffset, undefined, ' ')
       const match = text.match(/\/([^\s]*)$/)
       if (match) {
         const slashStart = $from.pos - match[0].length

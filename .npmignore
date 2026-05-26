@@ -5,5 +5,9 @@ vite.config.js
 vite.lib.config.js
 index.html
 node_modules/
-*.md
 .env*
+examples/
+.claude/
+*.log
+plan.md
+blocknote-interaction-analysis.md

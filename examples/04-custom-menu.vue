@@ -11,7 +11,7 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
-import { MarkdownEditor, menuItems, slashAction, plusAction } from '../../src/entry'
+import { MarkdownEditor, menuItems, slashAction, plusAction } from '../src/entry'
 
 const content = ref('# 自定义菜单示例\n\n尝试输入 `/` 查看自定义菜单')
 const editorRef = ref(null)

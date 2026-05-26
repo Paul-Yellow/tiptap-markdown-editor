@@ -18,7 +18,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { MarkdownEditor } from '../../src/entry'
+import { MarkdownEditor } from '../src/entry'
 
 const content = ref('')
 const editorRef = ref(null)
@@ -42,24 +42,29 @@ const demoText = `# AI 流式输出示例
 let streamIndex = 0
 let streamTimer = null
 
+// 按行分割，确保 markdown 标记完整
+function splitByLines(text) {
+  return text.split('\n')
+}
+
 function startStream() {
   isStreaming.value = true
   content.value = ''
   streamIndex = 0
 
-  // 模拟逐字符输出
-  const chars = demoText.split('')
+  // 按行分割，确保每行的 markdown 标记完整
+  const lines = splitByLines(demoText)
 
   streamTimer = setInterval(() => {
-    if (streamIndex >= chars.length) {
+    if (streamIndex >= lines.length) {
       stopStream()
       return
     }
-    // 每次追加 1-3 个字符模拟流式输出
-    const chunk = chars.slice(streamIndex, streamIndex + Math.floor(Math.random() * 3) + 1).join('')
-    content.value += chunk
-    streamIndex += chunk.length
-  }, 30)
+    // 每次追加一行（保持换行符）
+    const line = lines[streamIndex]
+    content.value += line + (streamIndex < lines.length - 1 ? '\n' : '')
+    streamIndex++
+  }, 80)
 }
 
 function stopStream() {

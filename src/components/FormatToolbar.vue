@@ -333,7 +333,7 @@ function updatePosition() {
 }
 
 function showToolbar(from, to) {
-  if (!props.editor) return
+  if (!props.editor || props.editor.isDestroyed) return
 
   // 更新当前字体选中状态 - 先检查 textStyle mark，如果没有则从 DOM 获取实际渲染的字体
   let fontFamily = ''
@@ -351,16 +351,20 @@ function showToolbar(from, to) {
 
   // 如果 mark 中没有字体信息，从 DOM 获取实际渲染的字体
   if (!fontFamily) {
-    const { view } = props.editor
-    const domAtPos = view.domAtPos(from)
-    if (domAtPos && domAtPos.node) {
-      const container = domAtPos.node.nodeType === Node.ELEMENT_NODE
-        ? domAtPos.node
-        : domAtPos.node.parentElement
-      if (container) {
-        const computedStyle = window.getComputedStyle(container)
-        fontFamily = computedStyle.fontFamily
+    try {
+      const { view } = props.editor
+      const domAtPos = view.domAtPos(from)
+      if (domAtPos && domAtPos.node) {
+        const container = domAtPos.node.nodeType === Node.ELEMENT_NODE
+          ? domAtPos.node
+          : domAtPos.node.parentElement
+        if (container) {
+          const computedStyle = window.getComputedStyle(container)
+          fontFamily = computedStyle.fontFamily
+        }
       }
+    } catch (e) {
+      // editor.view 在销毁后不可访问，忽略错误
     }
   }
 
@@ -387,30 +391,34 @@ function showToolbar(from, to) {
   visible.value = true
   pendingSelection.value = null
 
-  const { view } = props.editor
-  const start = view.coordsAtPos(from)
-  const end = view.coordsAtPos(to)
+  try {
+    const { view } = props.editor
+    const start = view.coordsAtPos(from)
+    const end = view.coordsAtPos(to)
 
-  // 计算工具栏位置（选区上方居中）
-  const toolbarWidth = 350
-  let left = (start.left + end.left) / 2 - toolbarWidth / 2
-  let top = start.top - 45
+    // 计算工具栏位置（选区上方居中）
+    const toolbarWidth = 350
+    let left = (start.left + end.left) / 2 - toolbarWidth / 2
+    let top = start.top - 45
 
-  // 确保不超出视口边界
-  const viewportWidth = window.innerWidth
-  if (left < 10) left = 10
-  if (left + toolbarWidth > viewportWidth - 10) left = viewportWidth - toolbarWidth - 10
+    // 确保不超出视口边界
+    const viewportWidth = window.innerWidth
+    if (left < 10) left = 10
+    if (left + toolbarWidth > viewportWidth - 10) left = viewportWidth - toolbarWidth - 10
 
-  // 如果上方空间不足，放在下方
-  if (top < 10) {
-    top = end.bottom + 10
-  }
+    // 如果上方空间不足，放在下方
+    if (top < 10) {
+      top = end.bottom + 10
+    }
 
-  toolbarStyle.value = {
-    position: 'fixed',
-    left: `${left}px`,
-    top: `${top}px`,
-    zIndex: 1000
+    toolbarStyle.value = {
+      position: 'fixed',
+      left: `${left}px`,
+      top: `${top}px`,
+      zIndex: 1000
+    }
+  } catch (e) {
+    // editor.view 在销毁后不可访问，忽略错误
   }
 }
 
@@ -454,13 +462,23 @@ onMounted(() => {
 })
 
 onBeforeUnmount(() => {
-  props.editor?.off('transaction', updatePosition)
-  const editorDom = props.editor?.view.dom
-  if (editorDom) {
-    editorDom.removeEventListener('mousedown', handleMouseDown)
-    editorDom.removeEventListener('mouseup', handleMouseUp)
-  }
   document.removeEventListener('click', handleClickOutside)
+
+  // 检查 editor 是否已销毁或不可用
+  if (!props.editor || props.editor.isDestroyed) {
+    return
+  }
+
+  props.editor.off('transaction', updatePosition)
+  try {
+    const editorDom = props.editor.view?.dom
+    if (editorDom) {
+      editorDom.removeEventListener('mousedown', handleMouseDown)
+      editorDom.removeEventListener('mouseup', handleMouseUp)
+    }
+  } catch (e) {
+    // editor.view 在销毁后不可访问，忽略错误
+  }
 })
 
 function handleClickOutside(event) {
@@ -473,17 +491,29 @@ function handleClickOutside(event) {
 }
 
 watch(() => props.editor, (newEditor, oldEditor) => {
-  if (oldEditor) {
+  if (oldEditor && !oldEditor.isDestroyed) {
     oldEditor.off('transaction', updatePosition)
-    const oldDom = oldEditor.view.dom
-    oldDom.removeEventListener('mousedown', handleMouseDown)
-    oldDom.removeEventListener('mouseup', handleMouseUp)
+    try {
+      const oldDom = oldEditor.view?.dom
+      if (oldDom) {
+        oldDom.removeEventListener('mousedown', handleMouseDown)
+        oldDom.removeEventListener('mouseup', handleMouseUp)
+      }
+    } catch (e) {
+      // editor.view 在销毁后不可访问，忽略错误
+    }
   }
-  if (newEditor) {
+  if (newEditor && !newEditor.isDestroyed) {
     newEditor.on('transaction', updatePosition)
-    const newDom = newEditor.view.dom
-    newDom.addEventListener('mousedown', handleMouseDown)
-    newDom.addEventListener('mouseup', handleMouseUp)
+    try {
+      const newDom = newEditor.view?.dom
+      if (newDom) {
+        newDom.addEventListener('mousedown', handleMouseDown)
+        newDom.addEventListener('mouseup', handleMouseUp)
+      }
+    } catch (e) {
+      // editor.view 在销毁后不可访问，忽略错误
+    }
   }
 })
 </script>

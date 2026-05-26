@@ -131,6 +131,8 @@ function convertBlock(editor, type, attrs) {
   view.dispatch(tr)
 }
 
+export { slashAction, plusAction }
+
 export const menuItems = [
   {
     label: '正文',

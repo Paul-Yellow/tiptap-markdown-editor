@@ -10,7 +10,7 @@ import { ref } from 'vue'
 import { exportToDocX } from '../utils/exportDocx'
 
 const props = defineProps({
-  editor: { type: Object, required: true }
+  editor: { type: Object, default: null }
 })
 
 const exporting = ref(false)

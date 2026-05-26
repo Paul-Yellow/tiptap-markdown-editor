@@ -12,17 +12,15 @@
 | [04-custom-menu.vue](./04-custom-menu.vue) | 自定义 Slash 菜单 |
 | [05-streaming.vue](./05-streaming.vue) | AI 流式输出 / 打字机效果 |
 
-## 运行示例
+## 查看示例
+
+运行开发服务器后，顶部有示例切换器，点击即可切换不同示例：
 
 ```bash
-# 克隆仓库后
-cd markdown-editor
-npm install
-
-# 将 App.vue 替换为对应示例
-cp examples/01-basic.vue src/App.vue
 npm run dev
 ```
+
+然后打开 http://localhost:5176 查看。
 
 ## 更多文档
 

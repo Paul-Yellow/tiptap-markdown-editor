@@ -223,16 +223,37 @@ watch(
       if (val.startsWith(currentMd)) {
         const diff = val.slice(currentMd.length)
         if (diff) {
-          editor.value.commands.insertContentAt(editor.value.state.doc.content.size, diff)
+          // Check if diff contains newline or markdown markers
+          const needsFullReparse = diff.includes('\n') ||
+            /^[\s]*[#*\-`>]+|^[\s]*\d+\./.test(diff) ||
+            /`[^`]*`/.test(diff)
+
+          if (needsFullReparse) {
+            // Full replace for markdown structure changes
+            // Use markdown extension's parse method to convert markdown to JSON
+            const parsedContent = editor.value.storage.markdown?.parse?.(val)
+            if (parsedContent) {
+              isUpdatingFromExternal = true
+              editor.value.commands.setContent(parsedContent)
+              isUpdatingFromExternal = false
+            }
+          } else {
+            // Simple text append (no markdown structure)
+            editor.value.commands.insertContentAt(editor.value.state.doc.content.size, diff)
+          }
         }
         return
       }
     }
 
     // Non-streaming or content changed significantly: replace entirely
-    isUpdatingFromExternal = true
-    editor.value.commands.setContent(val)
-    isUpdatingFromExternal = false
+    // Use markdown extension's parse method
+    const parsedContent = editor.value.storage.markdown?.parse?.(val)
+    if (parsedContent) {
+      isUpdatingFromExternal = true
+      editor.value.commands.setContent(parsedContent)
+      isUpdatingFromExternal = false
+    }
   }
 )
 

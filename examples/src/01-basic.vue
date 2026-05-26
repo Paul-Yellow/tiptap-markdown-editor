@@ -17,7 +17,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { MarkdownEditor } from '../src/entry'
+import { MarkdownEditor } from '@paulyellow/tiptap-markdown-editor'
 
 const content = ref('# 你好，世界\n\n这是一个基于 Vue 3 + TipTap 的 Markdown 编辑器。')
 const output = ref('')

@@ -11,7 +11,7 @@
 
 <script setup>
 import { ref } from 'vue'
-import { MarkdownEditor } from '../src/entry'
+import { MarkdownEditor } from '@paulyellow/tiptap-markdown-editor'
 
 const content = ref(`# 只读模式示例
 

@@ -16,7 +16,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { MarkdownEditor, ExportPdfBtn, ExportDocxBtn } from '../src/entry'
+import { MarkdownEditor, ExportPdfBtn, ExportDocxBtn } from '@paulyellow/tiptap-markdown-editor'
 
 const content = ref('# 文档标题\n\n这里是文档内容，可以导出为 PDF 或 Word 文档。')
 const editorRef = ref(null)

@@ -158,7 +158,7 @@ const editor = useEditor({
       class: 'tiptap-editor-content',
       style: `min-height: ${props.height}; padding: 16px 16px 16px 48px; outline: none;`
     },
-    editable: () => true
+    editable: () => !props.previewOnly
   },
   onUpdate: ({ editor }) => {
     const md = editor.storage.markdown?.getMarkdown?.() || ''
@@ -294,7 +294,15 @@ function handleChartSave(newJson) {
 defineExpose({
   getMarkdown: () => editor.value?.storage.markdown?.getMarkdown?.() || '',
   getHtml: () => editor.value?.getHTML() || '',
-  editor: () => editor.value
+  editor: () => editor.value,
+  // 动态设置只读状态
+  setEditable: (editable) => editor.value?.setEditable?.(editable),
+  // 设置内容
+  setContent: (content) => editor.value?.commands.setContent?.(content),
+  // 聚焦编辑器
+  focus: () => editor.value?.commands.focus?.(),
+  // 清除内容
+  clearContent: () => editor.value?.commands.clearContent?.(),
 })
 </script>
 

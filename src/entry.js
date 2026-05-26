@@ -7,7 +7,8 @@ import { MarkdownInputRules } from './extensions/MarkdownInputRules'
 import { SlashMenuExtension } from './extensions/SlashMenuExtension'
 import { BlockButtonsExtension, initBlockButtons, updateBlockButtons } from './extensions/BlockButtonsExtension'
 import { Table, TableRow, TableHeader, TableCell } from './extensions/Table'
-import { menuItems } from './components/SlashMenu/menuItems.js'
+import { menuItems, slashAction, plusAction } from './components/SlashMenu/menuItems.js'
+import { exportToPdf } from './utils/exportPdf'
 import { FontFamily, TextStyle } from '@tiptap/extension-text-style'
 import Color from '@tiptap/extension-text-style/color'
 import TextAlign from '@tiptap/extension-text-align'
@@ -42,6 +43,9 @@ export {
   OrderedList,
   ListItem,
   menuItems,
+  slashAction,
+  plusAction,
+  exportToPdf,
 }
 
 export default { install }

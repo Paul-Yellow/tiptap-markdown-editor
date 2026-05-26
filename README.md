@@ -69,11 +69,15 @@ const getEditor = () => editorRef.value?.editor()
 
 通过 `ref` 调用：
 
-| 方法名 | 返回值 | 说明 |
-| --- | --- | --- |
-| `getMarkdown()` | `String` | 获取 Markdown 内容 |
-| `getHtml()` | `String` | 获取 HTML 内容 |
-| `editor()` | `Editor` | 获取 TipTap Editor 实例 |
+| 方法名 | 参数 | 返回值 | 说明 |
+| --- | --- | --- | --- |
+| `getMarkdown()` | - | `String` | 获取 Markdown 内容 |
+| `getHtml()` | - | `String` | 获取 HTML 内容 |
+| `editor()` | - | `Editor` | 获取 TipTap Editor 实例 |
+| `setEditable(editable)` | `editable: Boolean` | - | 动态设置编辑/只读状态 |
+| `setContent(content)` | `content: String` | - | 设置编辑器内容 |
+| `focus()` | - | - | 聚焦编辑器 |
+| `clearContent()` | - | - | 清空编辑器内容 |
 
 ### ExportPdfBtn
 
@@ -99,29 +103,42 @@ const getEditor = () => editorRef.value?.editor()
 | --- | --- | --- | --- |
 | `editor` | `Object` | 是 | TipTap Editor 实例 |
 
-## 扩展组件
-
-可以按需导入编辑器使用的扩展：
+## 完整导出列表
 
 ```javascript
+// 组件
+import { MarkdownEditor, ExportPdfBtn, ExportDocxBtn } from 'tiptap-markdown-editor'
+
+// 扩展组件
 import {
   EChartsNode,
   CodeBlockWithCharts,
   MarkdownInputRules,
   SlashMenuExtension,
   BlockButtonsExtension,
+  initBlockButtons,
+  updateBlockButtons,
   Table,
   TableRow,
   TableHeader,
   TableCell,
-  menuItems
+  FontFamily,
+  TextStyle,
+  Color,
+  TextAlign,
+  BulletList,
+  OrderedList,
+  ListItem
 } from 'tiptap-markdown-editor'
+
+// 工具函数
+import { menuItems, slashAction, plusAction, exportToPdf } from 'tiptap-markdown-editor'
 ```
 
 ## 自定义 Slash 菜单
 
 ```javascript
-import { MarkdownEditor, menuItems } from 'tiptap-markdown-editor'
+import { MarkdownEditor, menuItems, slashAction, plusAction } from 'tiptap-markdown-editor'
 
 // menuItems 可自定义或扩展
 // 每个菜单项格式：

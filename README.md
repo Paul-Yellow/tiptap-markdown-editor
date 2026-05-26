@@ -64,6 +64,7 @@ const getEditor = () => editorRef.value?.editor()
 | `height` | `String \| Number` | `'500px'` | 编辑器高度 |
 | `placeholder` | `String` | `''` | 占位文字 |
 | `previewOnly` | `Boolean` | `false` | 只读预览模式 |
+| `streaming` | `Boolean` | `false` | 流式输出模式（优化增量更新） |
 
 #### 暴露的方法
 
@@ -160,6 +161,31 @@ import { exportToPdf } from 'tiptap-markdown-editor'
 // 直接调用导出
 exportToPdf(editorDomElement, 'document.pdf')
 ```
+
+## 流式输出
+
+当对接 AI 模型（如 LLM）的流式输出时，启用 `streaming` 属性可以显著提升性能：
+
+```vue
+<MarkdownEditor
+  ref="editorRef"
+  v-model="content"
+  :streaming="true"
+/>
+```
+
+### 为什么需要 `streaming` 模式？
+
+| 模式 | 行为 | 性能 |
+| --- | --- | --- |
+| 默认模式 | 每次更新替换整个文档 | 大文本时卡顿 |
+| streaming 模式 | 仅追加新增文本 | 流畅的打字机效果 |
+
+启用 `streaming` 后：
+- 编辑器自动检测新增内容，只插入增量部分
+- 避免频繁全量替换导致的 DOM 重绘
+- 光标位置不会被重置
+- 支持逐字符/逐块的打字机效果
 
 ## 依赖要求
 

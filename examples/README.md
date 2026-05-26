@@ -10,6 +10,7 @@
 | [02-export.vue](./02-export.vue) | 导出功能 - PDF 和 DOCX |
 | [03-readonly.vue](./03-readonly.vue) | 只读预览模式 |
 | [04-custom-menu.vue](./04-custom-menu.vue) | 自定义 Slash 菜单 |
+| [05-streaming.vue](./05-streaming.vue) | AI 流式输出 / 打字机效果 |
 
 ## 运行示例
 

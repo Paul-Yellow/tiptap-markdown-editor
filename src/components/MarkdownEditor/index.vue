@@ -71,7 +71,8 @@ const props = defineProps({
   modelValue: { type: String, default: '' },
   height: { type: [String, Number], default: '500px' },
   placeholder: { type: String, default: '' },
-  previewOnly: { type: Boolean, default: false }
+  previewOnly: { type: Boolean, default: false },
+  streaming: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['update:modelValue', 'change'])
@@ -80,6 +81,9 @@ const chartDialog = ref(null)
 let editingNodePos = null
 let isMounted = false
 let lastEmittedValue = ''
+
+// Track last external value to prevent feedback loop during streaming
+let lastExternalValue = ''
 
 const editorContainerRef = ref(null)
 const slashMenuRef = ref(null)
@@ -161,6 +165,9 @@ const editor = useEditor({
     editable: () => !props.previewOnly
   },
   onUpdate: ({ editor }) => {
+    // Prevent feedback loop when updating from external source
+    if (isUpdatingFromExternal) return
+
     const md = editor.storage.markdown?.getMarkdown?.() || ''
     lastEmittedValue = md
     emit('update:modelValue', md)
@@ -196,16 +203,40 @@ const editor = useEditor({
   }
 })
 
+let isUpdatingFromExternal = false
+
 watch(
   () => props.modelValue,
   (val) => {
     if (val === lastEmittedValue) return
-    if (!isMounted) return
-    if (editor.value) {
-      editor.value.commands.setContent(val)
+    if (!isMounted || !editor.value) return
+
+    if (props.streaming) {
+      // Streaming mode: only update if external value changed
+      if (val === lastExternalValue) return
+      lastExternalValue = val
+
+      const currentMd = editor.value.storage.markdown?.getMarkdown?.() || ''
+      if (val === currentMd) return
+
+      // If new value is an append of current content, only insert the diff
+      if (val.startsWith(currentMd)) {
+        const diff = val.slice(currentMd.length)
+        if (diff) {
+          editor.value.commands.insertContentAt(editor.value.state.doc.content.size, diff)
+        }
+        return
+      }
     }
+
+    // Non-streaming or content changed significantly: replace entirely
+    isUpdatingFromExternal = true
+    editor.value.commands.setContent(val)
+    isUpdatingFromExternal = false
   }
 )
+
+// Prevent feedback loop during streaming
 
 onMounted(() => {
   isMounted = true
